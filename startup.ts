@@ -119,6 +119,18 @@ logger.info("Day.JS loaded.", { tags: ["DayJS"] });
 
 const tune = new Tune(logger);
 
+if (process.env.DISCORD_CLIENT_ID === Tune.bots[0]) {
+  const path = join(__dirname, "..", "theme", "active");
+  logger.debug("Oh main bot! Applying theme config...", {
+    tags: ["Theme"],
+  });
+  const promise = import(join(path, "info.json"));
+  promise.then(async (theme) => {
+    tune.options.presence = theme.presence ?? tune.options.presence;
+    await tune.loadTheme(path);
+  });
+}
+
 process.on("uncaughtException", (error: any) => {
   if (error instanceof CommandError) {
     error.context.command.handleError(error);

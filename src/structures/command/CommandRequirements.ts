@@ -131,7 +131,6 @@ export class CommandRequirements {
             },
           ]) as GuildPermission[];
         const everyonePerm = permissions.find((p) => p.id === "everyone");
-        // @ts-ignore
         const deny = new CustomPermissions(everyonePerm?.deny ?? 0);
         const perms = permissions.filter(
           (p) =>

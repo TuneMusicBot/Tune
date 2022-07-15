@@ -1,35 +1,20 @@
-/** Logs stuff */
 import { Logger } from "winston";
-
-/** Discord */
 import { Client, Collection, Options, Partials, VoiceRegion } from "discord.js";
 import { ActivityType } from "discord-api-types/v10";
 import { REST } from "@discordjs/rest";
-
-/** Files */
-import { Stats, readdirSync } from "fs";
+import { Stats, readdirSync, readFileSync } from "fs";
 import { join } from "path";
-
-/** Translations */
 import fsBackend from "i18next-fs-backend";
 import i18next, { i18n } from "i18next";
-
-/** Database */
-// @ts-ignore
 import { PrismaClient } from "@prisma/client";
 import Redis from "ioredis";
 import { TypingData } from "./@types";
 import { directory } from "./utils/File";
-
-/** Structures */
 import { Command } from "./structures/command/Command";
 import { EventListener } from "./structures/EventListener";
 import { Node } from "./structures/Node";
 import { Lastfm } from "./apis/Lastfm";
 import { Autocomplete } from "./apis/Autocomplete";
-// import { ListenMoe } from "./apis/Listenmoe";
-
-/** Utils */
 import { COLORS } from "./utils/Constants";
 import { Connection } from "./structures/Connection";
 
@@ -268,6 +253,35 @@ export class Tune extends Client {
     }
     // @ts-ignore
     return COLORS[name];
+  }
+
+  async loadTheme(path: any) {
+    try {
+      const theme = await import(join(path, "info.json"));
+      if (theme.updateUser && this.shard?.ids.includes(0)) {
+        await this.rest
+          .setToken(process.env.DISCORD_TOKEN)
+          .patch("/users/@me", {
+            auth: true,
+            authPrefix: "Bot",
+            body: {
+              username: theme.name,
+              avatar: `data:image/png;base64,${readFileSync(
+                join(path, "avatar.png"),
+                { encoding: "base64" }
+              )}`,
+            },
+          });
+      }
+      Object.assign(process.env, Object.create(theme.enviroment));
+      if (theme.colors)
+        Object.assign(Object.create(CUSTOM_COLORS), theme.colors);
+      this.logger.info(`Theme "${theme.id}" applied!`, {
+        tags: ["Theme"],
+      });
+    } catch (e: any) {
+      this.logger.error(e, { tags: ["Theme"] });
+    }
   }
 }
 

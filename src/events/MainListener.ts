@@ -7,8 +7,6 @@ import {
   InteractionType,
   VoiceBasedChannel,
 } from "discord.js";
-import { join } from "path";
-import { readFileSync } from "fs";
 import { NodeOptions } from "../@types/lavalink";
 import { EventListener } from "../structures/EventListener";
 import { ExtendedUser } from "../structures/ExtendedUser";
@@ -18,8 +16,6 @@ import { Utils } from "../utils/Utils";
 import { Connection } from "../structures/Connection";
 
 export class MainListener extends EventListener {
-  private readonly pendingEvents: Map<number, object[]> = new Map();
-
   constructor(client: Tune) {
     super(
       [
@@ -182,30 +178,6 @@ export class MainListener extends EventListener {
   }
 
   async onReady() {
-    if (this.client.user?.id === Tune.bots[0]) {
-      try {
-        const path = join(__dirname, "..", "..", "..", "theme", "active");
-        const theme = await import(join(path, "info.json"));
-        this.client.logger.debug("Oh main bot! Applying theme config...", {
-          tags: ["Theme"],
-        });
-        this.client.user.setPresence(theme.presence);
-        if (theme.updateUser && this.client.shard?.ids.includes(0)) {
-          await this.client.user.edit({
-            avatar: readFileSync(join(path, "avatar.png")),
-            username: theme.name,
-          });
-        }
-        Object.assign(process.env, Object.create(theme.enviroment));
-        if (theme.colors)
-          Object.assign(Object.create(CUSTOM_COLORS), theme.colors);
-        this.client.logger.info(`Theme "${theme.id}" applied!`, {
-          tags: ["Theme"],
-        });
-      } catch (error: any) {
-        this.client.logger.error(error, { error, tags: ["Theme"] });
-      }
-    }
     if (this.client.voiceRegions.size === 0) {
       const regions = await this.client.fetchVoiceRegions();
       this.client.logger.info(`Fetched ${regions.size} voice regions.`, {
