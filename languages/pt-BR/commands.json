@@ -3,7 +3,7 @@
         "text": "🏓 `{{ping}}ms`"
     },
     "uptime": {
-        "text": "Estou online há **{{uptime}}**"
+        "text": "Eu fui iniciado **{{uptime}}**"
     },
     "record": {
         "starting": "Iniciando gravação...",

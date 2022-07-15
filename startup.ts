@@ -5,10 +5,11 @@ import { inspect } from "util";
 import chalk from "chalk";
 import { Console, File } from "winston/lib/winston/transports";
 import winston from "winston";
+import leapYear from "dayjs/plugin/isLeapYear";
+import duration from "dayjs/plugin/duration";
+import dayjs from "dayjs";
 import { Tune } from "./src/Tune";
 import { CommandError } from "./src/structures/command/CommandError";
-import "moment";
-import "moment-duration-format";
 import { Sentry } from "./src/structures/logger/Sentry";
 
 const logger = winston.createLogger({
@@ -110,6 +111,11 @@ if (process.env.SENTRY_DSN && process.env.SENTRY_DSN.length > 0) {
 }
 
 logger.info("Logger ready.", { tags: ["Logger"] });
+
+dayjs.extend(leapYear);
+dayjs.extend(duration);
+
+logger.info("Day.JS loaded.", { tags: ["DayJS"] });
 
 const tune = new Tune(logger);
 
