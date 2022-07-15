@@ -21,7 +21,6 @@ import i18next, { i18n } from "i18next";
 // @ts-ignore
 import { PrismaClient } from "@prisma/client";
 import Redis from "ioredis";
-import { MultibotApi } from "./MultibotApi";
 import { TypingData } from "./@types";
 import { directory } from "./utils/File";
 import { Sentry } from "./structures/logger/Sentry";
@@ -63,7 +62,6 @@ export class Tune extends Client {
   public readonly i18next: i18n = i18next.use(fsBackend);
   public readonly prisma: PrismaClient = new PrismaClient();
   public readonly commands: Array<Command> = [];
-  public readonly multibot: MultibotApi = new MultibotApi(this);
   public readonly nodes: Map<number, Node> = new Map();
   public readonly redis: Redis = new Redis(process.env.REDIS_URL);
   public readonly pendingDeletion: Set<string> = new Set();

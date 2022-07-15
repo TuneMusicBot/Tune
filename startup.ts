@@ -8,10 +8,6 @@ import "moment-duration-format";
 Object.defineProperty(global, "CUSTOM_COLORS", { value: Object.create(null) });
 dotenv.config();
 
-Object.defineProperty(global, "MULTIBOT_API", {
-  value: "wss://multibot-wearifulcupid0.cloud.okteto.net/",
-});
-
 const tune = new Tune();
 
 process.on("uncaughtException", (error: any) => {

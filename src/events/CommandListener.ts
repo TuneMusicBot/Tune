@@ -126,12 +126,7 @@ export class CommandListener extends EventListener {
           guildDatabase?.language ?? message.guild.preferredLocale,
           guildDatabase
         );
-        if (botMentions.includes(usedPrefix)) {
-          command.handleMessage(context, args);
-          return;
-        }
-        const canExecute = this.client.multibot.canExecuteCommand(context);
-        if (canExecute) command.handleMessage(context, args);
+        command.handleMessage(context, args);
       }
     } else if (message.channelId === guildDatabase?.thread_id) {
       const command = this.client.commands.find((c) => c.name === "play")!;
@@ -141,8 +136,7 @@ export class CommandListener extends EventListener {
         command,
         guildDatabase?.language ?? message.guild.preferredLocale
       );
-      const canExecute = this.client.multibot.canExecuteCommand(context);
-      if (canExecute) command.handleMessage(context, args);
+      command.handleMessage(context, args);
     }
   }
 

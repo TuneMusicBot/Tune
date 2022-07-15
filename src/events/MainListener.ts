@@ -282,19 +282,6 @@ export class MainListener extends EventListener {
         .map((g) => g.members.fetch(this.client.user?.id!))
     );
 
-    await this.client.multibot.connect();
-    setInterval(
-      async () =>
-        this.client.multibot.send({
-          op: "stats",
-          players: await this.client.prisma.player.count({
-            where: { platform: "DISCORD", bot_id: this.client.user?.id },
-          }),
-          ping: this.client.ws.ping,
-        }),
-      45000
-    );
-
     this.client.ready = true;
     this.client.logger.info(
       `Client ready as ${this.client.user?.tag}, on application ${this.client.application?.name}`,

@@ -1,5 +1,4 @@
 declare global {
-  const MULTIBOT_API = "ws://multibot-wearifulcupid0.cloud.okteto.net/";
   const CUSTOM_COLORS: Record<string, number> = {};
   namespace NodeJS {
     interface ProcessEnv {
