@@ -1,0 +1,230 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Guild {
+  id                 String    @id
+  platform           Platforms
+  language           String    @default("en-US")
+  prefixes           String[]
+  messages_id        String[]  @default([])
+  channel_id         String?
+  thread_id          String?
+  allow_dupes        Boolean   @default(true)
+  allow_playlists    Boolean   @default(true)
+  auto_unsupress     Boolean   @default(true)
+  auto_update_topic  Boolean   @default(false)
+  auto_sync_commands Boolean   @default(false)
+
+  permissions GuildPermission[]
+
+  @@map("guild")
+}
+
+model Playlist {
+  id            Int            @id @default(autoincrement())
+  owner_id      Int
+  name          String
+  description   String?
+  image         String?
+  tracks        PlaylistSong[]
+  flags         Int            @default(0)
+  collaborators Int[]
+
+  @@map("playlist")
+}
+
+model PlaylistSong {
+  id       Int    @id @default(autoincrement())
+  track    String
+  added_at String
+
+  playlist    Playlist? @relation(fields: [playlist_id], references: [id])
+  playlist_id Int
+}
+
+model SyncEvent {
+  id              String   @id
+  auto_unsupress  Boolean
+  initial_tracks  String[]
+  synchronizer_id String
+  guild_id        String
+  channel_id      String
+  paused          Boolean?
+  volume          Int      @default(100)
+  permissions     Json[]
+
+  @@map("guildEvents")
+}
+
+model GuildPermission {
+  id                String              @id @default("everyone")
+  type              GuildPermissionType
+  allow             Int                 @default(76)
+  deny              Int                 @default(50)
+  guild_id          String
+  disabled_commands String[]            @default([])
+
+  guild Guild? @relation(fields: [guild_id], references: [id])
+}
+
+enum GuildPermissionType {
+  MEMBER
+  ROLE
+  CHANNEL
+}
+
+model Blacklist {
+  id        String  @id
+  user_id   String
+  reason    String?
+  banned_by String
+  feedback  Boolean @default(true)
+
+  @@map("blacklist")
+}
+
+model User {
+  id            Int      @id @default(autoincrement())
+  language      String   @default("en-US")
+  logged_at     DateTime @default(now())
+  recent_search Json[]
+  achievements  Int      @default(0)
+
+  @@map("user")
+}
+
+model UserConnection {
+  id        String                  @id
+  logged_at DateTime                @default(now())
+  platform  UserConnectionPlatforms
+
+  access_token  String
+  refresh_token String?
+  expires_at    DateTime?
+  scopes        String[]
+
+  data          Json
+  config        Json
+  dm_channel_id String?
+
+  user_id Int
+
+  @@map("connection")
+}
+
+model Player {
+  id       Int          @id @unique @default(autoincrement())
+  state    PlayerStates
+  platform Platforms
+  actions  Json[]       @default([])
+
+  created_by String
+  created_at DateTime @default(now())
+  guild_id   String
+  bot_id     String
+  shard_id   Int
+
+  voice_channel_id   String
+  voice_channel_name String
+  text_channel_id    String?
+  text_channel_name  String?
+  message_id         String?
+  stage_instance_id  String?
+
+  volume          Int     @default(100)
+  autoplay        Boolean @default(false)
+  position        Int     @default(0)
+  forever         Boolean @default(false)
+  track_repeat    Boolean @default(false)
+  queue_repeat    Boolean @default(false)
+  display_artwork Boolean @default(true)
+  filters         Json?
+
+  idle_since   DateTime?
+  paused_since DateTime?
+  muted_since  DateTime?
+
+  node_id Int?
+  index   Int
+
+  game Game?
+}
+
+model PlayerTrack {
+  id Int @id @unique @default(autoincrement())
+
+  track        String
+  info         Json
+  added_at     DateTime @default(now())
+  playlistInfo Json?
+  index        Int
+
+  player_id Int
+}
+
+model Game {
+  id   Int       @id @default(autoincrement())
+  type GameTypes
+
+  started_by String
+  started_at DateTime @default(now())
+  volume     Int      @default(100)
+  filters    Json?
+
+  player_id Int     @unique
+  player    Player? @relation(fields: [player_id], references: [id])
+}
+
+model Vote {
+  id         Int           @id @unique @default(autoincrement())
+  user       String
+  is_weekend Boolean?
+  platform   VotePlatforms
+  voted_at   DateTime      @default(now())
+}
+
+enum UserConnectionPlatforms {
+  DISCORD
+  GUILDED
+  LASTFM
+  YOUTUBE
+  SPOTIFY
+  DEEZER
+  LISTENMOE
+}
+
+enum Platforms {
+  DISCORD
+  GUILDED
+}
+
+enum PlayerStates {
+  PLAYING
+  PAUSED
+  IDLE
+  MUTED
+}
+
+enum GameTypes {
+  GUESS_THE_SONG
+  KARAOKE
+}
+
+enum VotePlatforms {
+  TOPGG
+  VCODES
+  VOIDBOTS
+  BESTLIST
+  DSME
+  BLUEPHOENIX
+  BOTLIST
+}

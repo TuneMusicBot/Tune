@@ -1,0 +1,19 @@
+{
+    "ping": {
+        "text": "🏓 `{{ping}}ms`"
+    },
+    "uptime": {
+        "text": "Estou online há **{{uptime}}**"
+    },
+    "record": {
+        "starting": "Iniciando gravação...",
+        "downloading": "Baixando áudio...",
+        "sameVC": "Você não está no meu canal de voz.",
+        "notRecordingAnymore": "Eu não estou mais gravando o áudio.",
+        "stopping": "Parando gravação...",
+        "ended": "Gravação concluida!",
+        "failed": "Falha ao gravar o áudio.",
+        "recording": "Gravando áudio (gravação acaba <t:{{time}}:R>)",
+        "buttonLabel": "Parar gravação"
+    }
+}

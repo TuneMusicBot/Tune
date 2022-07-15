@@ -1,0 +1,19 @@
+{
+    "ping": {
+        "text": "🏓 `{{ping}}ms`"
+    },
+    "uptime": {
+        "text": "I've been online for **{{uptime}}**"
+    },
+    "record": {
+        "starting": "Starting recording...",
+        "downloading": "Downloading audio...",
+        "sameVC": "You have to be in the same voice channel as me in order to do that.",
+        "notRecordingAnymore": "I'm not recording any audio.",
+        "stopping": "Stopping recording...",
+        "ended": "Recording finished!",
+        "failed": "Fail to record this call.",
+        "recording": "Recording audio (recording end <t:{{time}}:R>)",
+        "buttonLabel": "Stop recording"
+    }
+}

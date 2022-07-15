@@ -1,0 +1,17 @@
+{
+    "id": "main",
+    "name": "Tune",
+    "presence": {
+        "status": "online",
+        "mobile": false,
+        "afk": false,
+        "activities": [{
+            "type": 2,
+            "name": "tunes • t.help"
+        }]
+    },
+    "colors": {
+        "MAIN": 14596286
+    },
+    "enviroment": {}
+}
