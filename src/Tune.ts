@@ -1,8 +1,5 @@
 /** Logs stuff */
-import { Console, File } from "winston/lib/winston/transports";
-import winston, { Logger } from "winston";
-import { inspect } from "util";
-import chalk from "chalk";
+import { Logger } from "winston";
 
 /** Discord */
 import { Client, Collection, Options, Partials, VoiceRegion } from "discord.js";
@@ -10,7 +7,7 @@ import { ActivityType } from "discord-api-types/v10";
 import { REST } from "@discordjs/rest";
 
 /** Files */
-import { Stats, readdirSync, readFileSync, existsSync, renameSync } from "fs";
+import { Stats, readdirSync } from "fs";
 import { join } from "path";
 
 /** Translations */
@@ -23,7 +20,6 @@ import { PrismaClient } from "@prisma/client";
 import Redis from "ioredis";
 import { TypingData } from "./@types";
 import { directory } from "./utils/File";
-import { Sentry } from "./structures/logger/Sentry";
 
 /** Structures */
 import { Command } from "./structures/command/Command";
@@ -48,11 +44,7 @@ export class Tune extends Client {
     "962091693346291753",
   ];
 
-  public readonly logger: Logger = winston.createLogger({
-    exitOnError: false,
-    handleExceptions: true,
-    handleRejections: true,
-  });
+  public readonly logger: Logger;
 
   public readonly voiceRegions: Collection<string, VoiceRegion> =
     new Collection();
@@ -79,7 +71,7 @@ export class Tune extends Client {
   public readonly autocomplete: Autocomplete = new Autocomplete();
   // public readonly listenmoe: ListenMoe = new ListenMoe(this);
 
-  constructor() {
+  constructor(logger: Logger) {
     super({
       intents: [
         "Guilds",
@@ -144,8 +136,9 @@ export class Tune extends Client {
       },
     });
 
-    const mainPath = join(__dirname, "..", "..");
-    const langPath = join(mainPath, "languages");
+    this.logger = logger;
+
+    const langPath = join(__dirname, "..", "..", "languages");
     this.i18next.init(
       {
         ns: ["commands", "commons", "errors", "discord"],
@@ -164,91 +157,6 @@ export class Tune extends Client {
         this.logger.info("Languages loaded.", { tags: ["i18Next"] });
       }
     );
-
-    console.log(
-      readFileSync(join(mainPath, "banner.txt"), { encoding: "utf-8" })
-    );
-
-    this.logger.add(
-      new Console({
-        level: "silly",
-        format: winston.format.combine(
-          winston.format.timestamp(),
-          winston.format.colorize(),
-          winston.format.printf((info) => {
-            const levelPrefix =
-              info.level.includes("info") || info.level.includes("warn")
-                ? `${info.level} `
-                : info.level;
-            const tagsPrefix =
-              info.tags && info.tags.length > 0
-                ? ` --- [${info.tags
-                    .map((t: string) => chalk.cyan(t))
-                    .join(", ")}]:`
-                : " --- ";
-            const message =
-              (info.message as any) instanceof Error ||
-              typeof info.message === "object"
-                ? inspect(info.message, { depth: 0 })
-                : String(info.message);
-            return `${info.timestamp} ${levelPrefix} ${process.pid}${tagsPrefix} ${message}`;
-          })
-        ),
-      })
-    );
-
-    if (existsSync(join(mainPath, "logs", "latest.log"))) {
-      this.logger.debug("Old log file found, renaming...", {
-        tags: ["Logger"],
-      });
-      renameSync(
-        join(mainPath, "logs", "latest.log"),
-        join(
-          mainPath,
-          "logs",
-          `${new Date().toISOString().replaceAll(":", "-")}.log`
-        )
-      );
-    }
-
-    this.logger.add(
-      new File({
-        level: "silly",
-        dirname: join(mainPath, "logs"),
-        filename: "latest.log",
-        format: winston.format.combine(
-          winston.format.timestamp(),
-          winston.format.uncolorize(),
-          winston.format.printf((info) => {
-            const levelPrefix =
-              info.level.includes("info") || info.level.includes("warn")
-                ? `${info.level} `
-                : info.level;
-            const tagsPrefix =
-              info.tags && info.tags.length > 0
-                ? ` --- [${info.tags.join(", ")}]:`
-                : " --- ";
-            const message =
-              (info.message as any) instanceof Error ||
-              typeof info.message === "object"
-                ? inspect(info.message, { depth: 0 })
-                : String(info.message);
-            return `${info.timestamp} ${levelPrefix} ${process.pid}${tagsPrefix} ${message}`;
-          })
-        ),
-      })
-    );
-
-    if (process.env.SENTRY_DSN && process.env.SENTRY_DSN.length > 0) {
-      this.logger.add(new Sentry(process.env.SENTRY_DSN));
-    } else {
-      this.logger.warn(
-        "Sentry DSN not defined. Skipping Sentry configuration.",
-        { tags: ["Logger", "Sentry"] }
-      );
-    }
-
-    this.logger.info("Logger ready.", { tags: ["Logger"] });
 
     this.rest.on("rateLimited", (ratelimit) =>
       this.logger.warn(
