@@ -25,7 +25,20 @@ export class ScheduledEventsListener extends EventListener {
       const event = await this.client.prisma.syncEvent
         .findFirst({ where: { id: old.id, guild_id: old.guildId } })
         .catch(() => null);
-      if (!event) return;
+      if (!event) {
+        await this.client.prisma.player
+          .updateMany({
+            where: {
+              platform: "DISCORD",
+              voice_channel_id: current.channelId ?? undefined,
+              guild_id: current.guildId,
+              bot_id: this.client.user?.id,
+            },
+            data: { voice_channel_type: "ACTIVE_STAGE_CHANNEL" },
+          })
+          .catch(() => null);
+        return;
+      }
       if (!current.channelId) {
         this.client.prisma.syncEvent
           .delete({ where: { id: old.id } })

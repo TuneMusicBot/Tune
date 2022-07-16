@@ -2,7 +2,13 @@ import { EmbedBuilder } from "@discordjs/builders";
 import { DiscordAPIError } from "@discordjs/rest";
 import { DiscordSnowflake } from "@sapphire/snowflake";
 import { APIMessage, Routes } from "discord-api-types/v10";
-import { GuildMember, VoiceBasedChannel } from "discord.js";
+import {
+  ChannelType,
+  GuildMember,
+  PermissionsBitField,
+  StageInstancePrivacyLevel,
+  VoiceBasedChannel,
+} from "discord.js";
 import ms from "pretty-ms";
 import {
   TrackEndEvent,
@@ -133,6 +139,44 @@ export class TrackListener extends EventListener {
     const user = CUSTOM_TYPES[userId]
       ? CUSTOM_TYPES[userId]
       : await this.client.users.fetch(userId).catch(() => null);
+    if (
+      db?.auto_update_topic &&
+      voiceChannel.type === ChannelType.GuildStageVoice &&
+      voiceChannel
+        .permissionsFor(this.client.user?.id as string)
+        ?.has(PermissionsBitField.StageModerator, true)
+    ) {
+      if (
+        player.stage_instance_id &&
+        guild.stageInstances.cache.has(player.stage_instance_id) &&
+        voiceChannel.stageInstance?.id === player.stage_instance_id
+      ) {
+        await guild.stageInstances
+          .edit(voiceChannel, {
+            privacyLevel: StageInstancePrivacyLevel.GuildOnly,
+            topic: Utils.limit(info.title, 117, info.author),
+          })
+          .catch(() => null);
+        player.voice_channel_type = "ACTIVE_STAGE_CHANNEL";
+        Object.assign(data, { voice_channel_type: "ACTIVE_STAGE_CHANNEL" });
+      } else if (!voiceChannel.stageInstance) {
+        player.stage_instance_id = await guild.stageInstances
+          .create(voiceChannel, {
+            sendStartNotification: false,
+            privacyLevel: StageInstancePrivacyLevel.GuildOnly,
+            topic: Utils.limit(info.title, 117, info.author),
+          })
+          .then((stage) => stage.id)
+          .catch(() => null);
+        if (player.stage_instance_id) {
+          player.voice_channel_type = "ACTIVE_STAGE_CHANNEL";
+          Object.assign(data, {
+            voice_channel_type: "ACTIVE_STAGE_CHANNEL",
+            stage_instance_id: player.stage_instance_id,
+          });
+        }
+      }
+    }
     if (player.text_channel_id) {
       const embed = new EmbedBuilder()
         .setColor(this.client.getColor("MAIN"))
@@ -197,7 +241,9 @@ export class TrackListener extends EventListener {
       else if (player.voice_channel_type === "ACTIVE_STAGE_CHANNEL")
         builder.appendLine(
           `🎧 **| ${t("commons:music.listeners", {
-            listeners: voiceChannel.members.size,
+            listeners: guild.voiceStates.cache.filter(
+              (v) => !!(v.channelId === voiceChannel.id && !v.member?.user.bot)
+            ).size,
           })}`
         );
       if (

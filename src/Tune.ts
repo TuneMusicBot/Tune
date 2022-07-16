@@ -1,12 +1,19 @@
 import { Logger } from "winston";
-import { Client, Collection, Options, Partials, VoiceRegion } from "discord.js";
+import {
+  Client,
+  Collection,
+  Options,
+  Partials,
+  PermissionsBitField,
+  VoiceRegion,
+} from "discord.js";
 import { ActivityType } from "discord-api-types/v10";
 import { REST } from "@discordjs/rest";
 import { Stats, readdirSync, readFileSync } from "fs";
 import { join } from "path";
 import fsBackend from "i18next-fs-backend";
 import i18next, { i18n } from "i18next";
-import { PrismaClient } from "@prisma/client";
+import { Player, PrismaClient } from "@prisma/client";
 import Redis from "ioredis";
 import { TypingData } from "./@types";
 import { directory } from "./utils/File";
@@ -278,17 +285,38 @@ export class Tune extends Client {
     }
   }
 
-  public async deletePlayer(guildId: string) {
-    const player = await this.prisma.player
-      .findFirst({
-        where: {
-          platform: "DISCORD",
-          guild_id: guildId,
-          bot_id: this.user?.id,
-        },
-      })
-      .catch(() => null);
+  public async deletePlayer(guildId: string, player?: Player | null) {
+    const guild = this.guilds.cache.get(guildId);
+    if (!player)
+      // eslint-disable-next-line no-param-reassign
+      player = await this.prisma.player
+        .findFirst({
+          where: {
+            platform: "DISCORD",
+            guild_id: guildId,
+            bot_id: this.user?.id,
+          },
+        })
+        .catch(() => null);
     if (!player) throw new Error("Unknown player.");
+    await this.prisma.player
+      .delete({ where: { id: player.id } })
+      .catch(() => null);
+    const db = await this.prisma.guild
+      .findFirst({ where: { id: guildId, platform: "DISCORD" } })
+      .catch(() => null);
+    if (
+      db?.auto_update_topic &&
+      player.stage_instance_id &&
+      guild?.stageInstances.cache.has(player.stage_instance_id) &&
+      guild.channels.cache
+        .get(player.voice_channel_id)
+        ?.permissionsFor(this.user?.id as string)
+        ?.has(PermissionsBitField.StageModerator, true)
+    )
+      await guild.stageInstances
+        .delete(player.voice_channel_id)
+        .catch(() => null);
     if (typeof player.node_id === "number" && this.nodes.has(player.node_id))
       this.nodes.get(player.node_id)?.send({ op: "destroy", guildId });
     await this.prisma.playerTrack
