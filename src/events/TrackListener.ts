@@ -207,7 +207,7 @@ export class TrackListener extends EventListener {
       )
         builder.appendLine(
           `⌛ **| ${t("commons:music.endAt")} <t:${~~(
-            (Date.now() + (info.length - player.position)) /
+            (Date.now() + (info.length - info.position)) /
             1000
           )}:R>**`
         );

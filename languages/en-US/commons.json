@@ -4,8 +4,9 @@
     "mentionPrefixes": "👋 **|** Hi <@!{{userId}}> my prefixes in this server are {{prefixes}}",
     "helpButton": "Help",
     "music": {
-        "trackException": "**Fail to play song** [`{{title}}`]({{uri}})** added by** <@!{{userId}}>**, so it was removed from the song queue automatically.**",
-        "trackStuck": "**The song** [`{{title}}`]({{uri}})** added by** <@!{{userId}}> **took more than** `{{time}}ms` **to start playing.**",
+        "trackException": "**Fail to play song** [`{{title}}`]({{uri}}){{extra}},  so it was removed from the song queue automatically.**",
+        "addedByEvent": " **added by** `{{tag}}`",
+        "trackStuck": "**The song** [`{{title}}`]({{uri}}){{extra}} **took more than** `{{time}}ms` **to start playing.**",
         "idleTooLong": "**I stayed on the voice channel for a long time without playing anything. So I'm exiting it and deleting the song queue.**",
         "pausedTooLong": "**I was on hold for a long time paused. So I left the voice channel and deleted the song queue.**",
         "aloneTooLong": "**I was alone on the voice channel for a long time. So I'm exiting it and deleting the song queue.**",
