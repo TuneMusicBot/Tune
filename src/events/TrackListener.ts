@@ -1,5 +1,6 @@
 import { EmbedBuilder } from "@discordjs/builders";
 import { DiscordAPIError } from "@discordjs/rest";
+import { DiscordSnowflake } from "@sapphire/snowflake";
 import { APIMessage, Routes } from "discord-api-types/v10";
 import { GuildMember, VoiceBasedChannel } from "discord.js";
 import ms from "pretty-ms";
@@ -156,7 +157,10 @@ export class TrackListener extends EventListener {
       if (!info.isStream && BigInt(info.length) !== 9223372036854775807n)
         builder.appendLine(
           `⏰ **| ${t("commons:music.duration", {
-            parsed: ms(info.length, { colonNotation: true }),
+            parsed: ms(info.length, {
+              colonNotation: true,
+              formatSubMilliseconds: false,
+            }),
           })}`
         );
       const channelUrl = `https://discord.com/channels/${player.guild_id}/${player.voice_channel_id}`;
@@ -212,56 +216,16 @@ export class TrackListener extends EventListener {
           `⌛ **| ${t("commons:music.endAt")} <t:${~~(Date.now() / 1000)}:R>**`
         );
       embed.setDescription(builder.toString());
-      if (!player.message_id) {
-        await this.client.rest
-          .post(Routes.channelMessages(player.text_channel_id), {
-            auth: true,
-            body: { embeds: [embed.data] },
-          })
-          .then((msg) =>
-            Object.assign(data, { message_id: (msg as APIMessage).id })
-          )
-          .catch((err) => {
-            if (err instanceof DiscordAPIError && err.code === 10003) {
-              Object.assign(data, {
-                text_channel_id: null,
-                text_channel_name: null,
-              });
-            }
-          });
-      } else if (player.text_channel_id) {
-        this.client.rest
-          .patch(
-            Routes.channelMessage(player.text_channel_id, player.message_id),
-            {
-              auth: true,
-              body: { embeds: [embed.data] },
-            }
-          )
-          .catch(async (err) => {
-            if (err instanceof DiscordAPIError) {
-              if (err.code === 10003) {
-                Object.assign(data, {
-                  text_channel_id: null,
-                  text_channel_name: null,
-                  message_id: null,
-                });
-              } else if (err.code === 10008) {
-                await this.client.rest
-                  .post(
-                    Routes.channelMessages(player?.text_channel_id as string),
-                    {
-                      auth: true,
-                      body: { embeds: [embed.data] },
-                    }
-                  )
-                  .then((msg) =>
-                    Object.assign(data, { message_id: (msg as APIMessage).id })
-                  );
-              }
-            }
-          });
-      }
+      const { channelId, messageId } = await this.updateMessage(
+        { embeds: [embed.data] },
+        player.text_channel_id,
+        player.message_id
+      ).catch(() => ({ channelId: undefined, messageId: undefined }));
+      Object.assign(data, {
+        text_channel_id: channelId,
+        message_id: messageId,
+        text_channel_name: channelId ? player.text_channel_name : null,
+      });
     }
     await this.updatePlayer(player.id, data);
     await this.updateLastfmProfiles(info, [...voiceChannel.members.values()]);
@@ -499,5 +463,55 @@ export class TrackListener extends EventListener {
         )
       );
     }
+  }
+
+  private async updateMessage(
+    payload: unknown,
+    channelId: string,
+    messageId?: string | null
+  ): Promise<{ messageId?: string; channelId?: string }> {
+    if (!messageId)
+      return this.client.rest
+        .post(Routes.channelMessages(channelId), {
+          auth: true,
+          body: payload,
+        })
+        .then((msg) => ({ messageId: (msg as APIMessage).id, channelId }))
+        .catch((err) => {
+          if (err instanceof DiscordAPIError && err.code === 10003) return {};
+          throw err;
+        });
+    const timestamp = DiscordSnowflake.timestampFrom(messageId);
+    if (timestamp + 300_000 < Date.now()) {
+      await this.client.rest
+        .delete(Routes.channelMessage(channelId, messageId))
+        .catch(() => null);
+      return this.updateMessage(payload, channelId);
+    }
+    return this.client.rest
+      .patch(Routes.channelMessage(channelId, messageId), {
+        auth: true,
+        body: payload,
+      })
+      .then((msg) => ({ messageId: (msg as APIMessage).id, channelId }))
+      .catch((err) => {
+        if (err instanceof DiscordAPIError) {
+          if (err.code === 10003) {
+            return {};
+          }
+          if (err.code === 10008) {
+            return this.client.rest
+              .post(Routes.channelMessages(channelId), {
+                auth: true,
+                body: payload,
+              })
+              .then((msg) => ({
+                channelId,
+                messageId: (msg as APIMessage).id,
+              }));
+          }
+        }
+        throw err;
+      });
   }
 }
