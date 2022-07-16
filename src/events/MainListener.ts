@@ -12,7 +12,6 @@ import { EventListener } from "../structures/EventListener";
 import { ExtendedUser } from "../structures/ExtendedUser";
 import { Node } from "../structures/Node";
 import { Tune } from "../Tune";
-import { Utils } from "../utils/Utils";
 import { Connection } from "../structures/Connection";
 
 export class MainListener extends EventListener {
@@ -217,10 +216,7 @@ export class MainListener extends EventListener {
                 new DMChannel(this, data)
               );
             }
-            const discord = ExtendedUser.toExtendedUser(
-              Utils.userToAPI((user.data ?? { id: user.id }) as any) as any,
-              this.client
-            );
+            const discord = ExtendedUser.toExtendedUser(user.id, this.client);
             if (user.access_token)
               discord.patchAuth({
                 access_token: user.access_token,

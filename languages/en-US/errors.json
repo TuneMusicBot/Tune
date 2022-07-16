@@ -26,5 +26,6 @@
     "missingThemeFile": "You did't send a theme file.",
     "failedToLoadTheme": "Failed to load theme file.",
     "missingIdentifier": "You didn't provide what do I have to play.",
-    "invalidUserButton": "You can't use that button."
+    "invalidUserButton": "You can't use that button.",
+    "noMatches": "Any song matched with this query."
 }

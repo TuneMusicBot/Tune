@@ -54,6 +54,7 @@ export class ScheduledEventsListener extends EventListener {
           position: 0,
           voice_channel_id: event.channel_id,
           voice_channel_name: current.channel?.name!,
+          voice_channel_type: "ACTIVE_STAGE_CHANNEL",
           volume: event.volume,
           bot_id: this.client.user?.id!,
         },

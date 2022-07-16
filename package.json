@@ -11,8 +11,9 @@
     "dev": "tsc --project tsconfig.json && node --no-warnings ./dist/startup.js",
     "build": "tsc --project tsconfig.json",
     "start": "node --no-warnings ./dist/startup.js",
-    "lint": "npx eslint ./ --ext .ts --fix",
-    "types:check": "npx tsc --noEmit --incremental false"
+    "lint": "eslint ./ --ext .ts --fix",
+    "types:check": "tsc --noEmit --incremental false",
+    "prisma:migrate": "prisma migrate dev"
   },
   "devDependencies": {
     "@types/i18next-fs-backend": "^1.1.2",
@@ -46,6 +47,7 @@
     "i18next": "^21.8.9",
     "i18next-fs-backend": "^1.1.4",
     "ioredis": "^5.1.0",
+    "pretty-ms": "7.0.1",
     "prisma-redis-middleware": "^4.0.6",
     "undici": "^5.2.0",
     "utf-8-validate": "^5.0.9",

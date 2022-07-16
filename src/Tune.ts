@@ -19,15 +19,9 @@ import { COLORS } from "./utils/Constants";
 import { Connection } from "./structures/Connection";
 
 export class Tune extends Client {
-  public static readonly bots: string[] = [
-    "723226234317963374",
-    /* '725067926457155706', */ "743945027616768011",
-    "820977815624613948",
-    "957040431126954034",
-    "962083883061477516",
-    "962084498378485813",
-    "962091693346291753",
-  ];
+  public static readonly bots: string[] = JSON.parse(
+    process.env.DISCORD_CLIENTS
+  );
 
   public readonly logger: Logger;
 
@@ -282,6 +276,24 @@ export class Tune extends Client {
     } catch (e: any) {
       this.logger.error(e, { tags: ["Theme"] });
     }
+  }
+
+  public async deletePlayer(guildId: string) {
+    const player = await this.prisma.player
+      .findFirst({
+        where: {
+          platform: "DISCORD",
+          guild_id: guildId,
+          bot_id: this.user?.id,
+        },
+      })
+      .catch(() => null);
+    if (!player) throw new Error("Unknown player.");
+    if (typeof player.node_id === "number" && this.nodes.has(player.node_id))
+      this.nodes.get(player.node_id)?.send({ op: "destroy", guildId });
+    await this.prisma.playerTrack
+      .deleteMany({ where: { player_id: player.id } })
+      .catch(() => null);
   }
 }
 

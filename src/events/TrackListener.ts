@@ -2,6 +2,7 @@ import { EmbedBuilder } from "@discordjs/builders";
 import { DiscordAPIError } from "@discordjs/rest";
 import { APIMessage, Routes } from "discord-api-types/v10";
 import { GuildMember, VoiceBasedChannel } from "discord.js";
+import ms from "pretty-ms";
 import {
   TrackEndEvent,
   TrackExceptionEvent,
@@ -13,7 +14,8 @@ import { EventListener } from "../structures/EventListener";
 import { ExtendedUser } from "../structures/ExtendedUser";
 import { Node } from "../structures/Node";
 import { Tune } from "../Tune";
-import { CUSTOM_TYPES } from "../utils/Constants";
+import { CUSTOM_TYPES, EMOJIS } from "../utils/Constants";
+import { StringBuilder } from "../utils/StringBuilder";
 import { Utils } from "../utils/Utils";
 
 export class TrackListener extends EventListener {
@@ -112,7 +114,7 @@ export class TrackListener extends EventListener {
     const voiceChannel = guild.channels.cache.get(
       player.voice_channel_id
     ) as VoiceBasedChannel;
-    const data = { actions: player.actions };
+    const data = { actions: player.actions, state: player.state };
     data.actions.push({
       id: track,
       type: "trackStart",
@@ -122,7 +124,7 @@ export class TrackListener extends EventListener {
     const t = this.client.i18next.getFixedT(
       db?.language ?? guild.preferredLocale
     );
-    if (player.state === "IDLE") Object.assign(data, { state: "PLAYING" });
+    if (player.state === "IDLE") data.state = "PLAYING";
     const current = await this.client.prisma.playerTrack.findFirst({
       where: { player_id: player.id, index: player.index },
     });
@@ -146,6 +148,70 @@ export class TrackListener extends EventListener {
         });
       if (player.display_artwork) embed.setThumbnail(info.artworkUrl);
       if (Utils.isURL(info.uri)) embed.setURL(info.uri);
+      const builder = new StringBuilder();
+      if (info.isStream) builder.append(t("commons:music.live"));
+      builder.appendLine(
+        `💽 **| ${t("commons:music.author", { author: info.author })}`
+      );
+      if (!info.isStream && BigInt(info.length) !== 9223372036854775807n)
+        builder.appendLine(
+          `⏰ **| ${t("commons:music.duration", {
+            parsed: ms(info.length, { colonNotation: true }),
+          })}`
+        );
+      const channelUrl = `https://discord.com/channels/${player.guild_id}/${player.voice_channel_id}`;
+      switch (player.voice_channel_type) {
+        case "VOICE_CHANNEL":
+          builder.appendLine(
+            `${EMOJIS.VOICE} **| ${t("commons:music.voiceChannel", {
+              name: player.voice_channel_name,
+              url: channelUrl,
+            })}`
+          );
+          break;
+        case "STAGE_CHANNEL":
+          builder.appendLine(
+            `${EMOJIS.STAGE} **| ${t("commons:music.stageChannel", {
+              name: player.voice_channel_name,
+              url: channelUrl,
+            })}`
+          );
+          break;
+        case "ACTIVE_STAGE_CHANNEL":
+          builder.appendLine(
+            `${EMOJIS.STAGE_ACTIVE} **| ${t("commons:music.stageChannel", {
+              name: player.voice_channel_name,
+              url: channelUrl,
+            })}`
+          );
+      }
+      const { listeners } = current?.info as unknown as { listeners?: number };
+      if (typeof listeners === "number")
+        builder.appendLine(
+          `🎧 **| ${t("commons:music.listeners", { listeners })}`
+        );
+      else if (player.voice_channel_type === "ACTIVE_STAGE_CHANNEL")
+        builder.appendLine(
+          `🎧 **| ${t("commons:music.listeners", {
+            listeners: voiceChannel.members.size,
+          })}`
+        );
+      if (
+        !info.isStream &&
+        BigInt(info.length) !== 9223372036854775807n &&
+        data.state === "PLAYING"
+      )
+        builder.appendLine(
+          `⌛ **| ${t("commons:music.endAt")} <t:${~~(
+            (Date.now() + (info.length - player.position)) /
+            1000
+          )}:R>**`
+        );
+      else if (data.state === "PLAYING")
+        builder.appendLine(
+          `⌛ **| ${t("commons:music.endAt")} <t:${~~(Date.now() / 1000)}:R>**`
+        );
+      embed.setDescription(builder.toString());
       if (!player.message_id) {
         await this.client.rest
           .post(Routes.channelMessages(player.text_channel_id), {
@@ -404,7 +470,7 @@ export class TrackListener extends EventListener {
   }
 
   private async scrobbleLastfmProfiles(
-    info: TrackInfo,
+    info: TrackInfo & { user: unknown },
     members: GuildMember[]
   ) {
     const users = members
@@ -423,9 +489,12 @@ export class TrackListener extends EventListener {
       });
       await Promise.all(
         connections.map((c) =>
-          this.client.lastfm.updateNowplaying(
+          this.client.lastfm.scrobbleSong(
             { ...info, authors: [{ name: info.author }] },
-            c.access_token
+            c.access_token,
+            users.find(({ account }) => account?.id === c.user_id)
+              ?.id as string,
+            new Date(Date.now() - info.length)
           )
         )
       );

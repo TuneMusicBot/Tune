@@ -27,19 +27,17 @@ export class Lastfm {
     const alreadyExists = await this.client.prisma.userConnection
       .findMany({ where: { user_id: accountId, platform: "LASTFM" } })
       .catch(() => []);
-    const { key } = await this.getSession(token);
-    const currentUser = await this.getCurrentUser(key);
-    if (alreadyExists.findIndex((c) => c.id === currentUser.name) !== -1) {
+    const { key, name } = await this.getSession(token);
+    if (alreadyExists.findIndex((c) => c.id === name) !== -1) {
       const connection = await this.client.prisma.userConnection.update({
-        where: { id: currentUser.name },
-        data: { access_token: key, data: currentUser },
+        where: { id: name },
+        data: { access_token: key },
       });
       return connection;
     }
     const connection = await this.client.prisma.userConnection.create({
       data: {
-        id: currentUser.name,
-        data: currentUser,
+        id: name,
         access_token: key,
         platform: "LASTFM",
         logged_at: new Date(),

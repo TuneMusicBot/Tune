@@ -174,8 +174,6 @@ export class ExtendedUser extends User {
           access_token: this.accessToken ?? "",
           scopes: this.scopes?.join(" "),
           dm_channel_id: this.dmChannel?.id,
-          data: this.toApiJson() as object,
-          logged_at: new Date(),
           config: {},
         },
       });

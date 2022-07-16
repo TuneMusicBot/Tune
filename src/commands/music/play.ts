@@ -4,8 +4,10 @@
 import {
   Attachment,
   AutocompleteFocusedOption,
+  ChannelType,
   EmbedBuilder,
   GuildTextBasedChannel,
+  StageChannel,
   VoiceBasedChannel,
 } from "discord.js";
 import { AttachmentOpts, StringOpts } from "../../@types/commands";
@@ -172,6 +174,16 @@ export class Play extends Command {
           text_channel_name: (context.channel as GuildTextBasedChannel).name,
           voice_channel_id: voiceChannel.id,
           voice_channel_name: voiceChannel.name,
+          voice_channel_type:
+            // eslint-disable-next-line no-nested-ternary
+            voiceChannel.type === ChannelType.GuildVoice
+              ? "VOICE_CHANNEL"
+              : (voiceChannel as StageChannel).stageInstance ||
+                context.guild?.scheduledEvents.cache.find(
+                  (e) => e.channelId === voiceChannel.id && e.isActive()
+                )
+              ? "ACTIVE_STAGE_CHANNEL"
+              : "STAGE_CHANNEL",
           shard_id: context.guild?.shardId as number,
           state: "IDLE",
           actions: [{ type: "playerCreate", time: Date.now() }],

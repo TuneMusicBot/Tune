@@ -28,7 +28,7 @@
         "endAt": "End",
         "playingTime": "Playing since",
         "leavingIn": "**Leaving channel {{time}}** (you can disable this timer using the command `247`)",
-        "listeners": "Listeners",
+        "listeners": "Listeners:** `{{listeners}}`",
         "buttons": {
             "hideImage": "Hide image",
             "showImage": "Show image",

@@ -112,7 +112,6 @@ model UserConnection {
   expires_at    DateTime?
   scopes        String[]
 
-  data          Json
   config        Json
   dm_channel_id String?
 
@@ -135,6 +134,7 @@ model Player {
 
   voice_channel_id   String
   voice_channel_name String
+  voice_channel_type VoiceChannelTypes
   text_channel_id    String?
   text_channel_name  String?
   message_id         String?
@@ -227,4 +227,10 @@ enum VotePlatforms {
   DSME
   BLUEPHOENIX
   BOTLIST
+}
+
+enum VoiceChannelTypes {
+  VOICE_CHANNEL
+  STAGE_CHANNEL
+  ACTIVE_STAGE_CHANNEL
 }

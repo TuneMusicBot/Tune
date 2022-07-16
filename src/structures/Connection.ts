@@ -8,6 +8,7 @@ import {
   GatewayVoiceStateUpdateDispatchData,
   PermissionsBitField,
   Snowflake,
+  StageChannel,
   VoiceBasedChannel,
 } from "discord.js";
 import { RequestMethod } from "@discordjs/rest";
@@ -364,9 +365,6 @@ export class Connection extends EventEmitter {
       // eslint-disable-next-line no-param-reassign
       update = true;
     }
-
-    // if (moved) this.player.updateStage();
-
     if (update)
       await this.client.prisma.player.update({
         where: { id: player.id },
@@ -375,6 +373,18 @@ export class Connection extends EventEmitter {
           stage_instance_id: player.stage_instance_id,
           state: player.state,
           message_id: player.message_id,
+          voice_channel_id: player.voice_channel_id,
+          voice_channel_name: vc.name,
+          voice_channel_type:
+            // eslint-disable-next-line no-nested-ternary
+            vc.type === ChannelType.GuildVoice
+              ? "VOICE_CHANNEL"
+              : (vc as StageChannel).stageInstance ||
+                this.guild.scheduledEvents.cache.find(
+                  (e) => e.isActive() && e.channelId === vc.id
+                )
+              ? "ACTIVE_STAGE_CHANNEL"
+              : "STAGE_CHANNEL",
         },
       });
   }

@@ -28,7 +28,7 @@
         "endAt": "Termina",
         "playingTime": "Tocando há",
         "leavingIn": "**Saindo do canal {{time}}** (você pode desativar este temporizador usando o comando `247`)",
-        "listeners": "Ouvintes",
+        "listeners": "Ouvintes:** `{{listeners}}`",
         "modal": {
             "title": "Adicionar música",
             "inputPlaceholder": "After Dark - Mr.Kitty",

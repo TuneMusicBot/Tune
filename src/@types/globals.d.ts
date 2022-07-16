@@ -15,6 +15,7 @@ declare global {
       readonly MUSIXMATCH_KEY: string;
       readonly SENTRY_DSN: string;
       readonly REDIS_URL: string;
+      readonly DISCORD_CLIENTS: string;
       readonly DISCORD_CLIENT_ID: string;
       readonly DISCORD_TOKEN: string;
     }

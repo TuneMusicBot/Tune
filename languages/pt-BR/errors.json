@@ -26,5 +26,6 @@
     "missingThemeFile": "Você não enviou um arquivo de tema.",
     "failedToLoadTheme": "Um erro aconteceu carregando o arquivo de temas.",
     "missingIdentifier": "Você não enviou o link/nome de uma música.",
-    "invalidUserButton": "Você não pode usar esse botão."
+    "invalidUserButton": "Você não pode usar esse botão.",
+    "noMatches": "Nenhuma música foi encontrada com esse nome."
 }
