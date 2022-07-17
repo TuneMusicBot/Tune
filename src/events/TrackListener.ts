@@ -106,7 +106,33 @@ export class TrackListener extends EventListener {
       return;
     }
 
-    Object.assign(data, { state: "IDLE", idle_since: new Date() });
+    if (player.text_channel_id) {
+      const db = await this.getDatabaseConfig(guildId);
+      const t = this.client.i18next.getFixedT(
+        db?.language ?? guild.preferredLocale
+      );
+      const embed = new EmbedBuilder()
+        .setColor(this.client.getColor("MAIN"))
+        .setTimestamp()
+        .setDescription(t("commons:music.queueEnd"));
+
+      const { messageId, channelId } = await this.updateMessage(
+        { embeds: [embed.data] },
+        player.text_channel_id,
+        player.message_id
+      );
+      Object.assign(data, {
+        text_channel_id: channelId,
+        message_id: messageId,
+        text_channel_name: channelId
+          ? guild.channels.cache.get(channelId)?.name
+          : null,
+      });
+    }
+    Object.assign(data, {
+      state: "IDLE",
+      idle_since: new Date(),
+    });
     await this.updatePlayer(player.id, data);
   }
 
