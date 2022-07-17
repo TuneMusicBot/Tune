@@ -61,7 +61,7 @@ export class Connection extends EventEmitter {
       const player = await this.getPlayer();
       let updated = false;
       if (!data.channel_id) {
-        if (this.state !== ConnectionStates.RECONNECTING) return;
+        if (this.state === ConnectionStates.RECONNECTING) return;
         await this.client.deletePlayer(guildId, player);
         return;
       }

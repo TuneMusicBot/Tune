@@ -53,7 +53,7 @@ export class Play extends Command {
             required: false,
             showUsage: true,
             missingError: "errors:missingIdentifier",
-            clean: false,
+            clean: true,
             lowerCase: false,
             upperCase: false,
             full: true,

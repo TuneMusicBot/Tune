@@ -1,4 +1,3 @@
-import { EmbedBuilder } from "@discordjs/builders";
 import { DiscordAPIError } from "@discordjs/rest";
 import { DiscordSnowflake } from "@sapphire/snowflake";
 import { APIMessage, Routes } from "discord-api-types/v10";
@@ -8,6 +7,7 @@ import {
   PermissionsBitField,
   StageInstancePrivacyLevel,
   VoiceBasedChannel,
+  EmbedBuilder,
 } from "discord.js";
 import ms from "pretty-ms";
 import {
@@ -204,7 +204,16 @@ export class TrackListener extends EventListener {
             parsed: ms(info.length, {
               colonNotation: true,
               formatSubMilliseconds: false,
-            }),
+            }).split(".")[0],
+          })}`
+        );
+      if (info.sourceName)
+        builder.appendLine(
+          `${
+            EMOJIS[info.sourceName.toUpperCase().replaceAll("-", "_")] ??
+            EMOJIS.HTTP
+          } **| ${t("commons:music.sourceName", {
+            name: t(`commons:music.sources.${info.sourceName}`),
           })}`
         );
       const channelUrl = `https://discord.com/channels/${player.guild_id}/${player.voice_channel_id}`;

@@ -5,6 +5,7 @@ import {
   Options,
   Partials,
   PermissionsBitField,
+  Routes,
   VoiceRegion,
 } from "discord.js";
 import { ActivityType } from "discord-api-types/v10";
@@ -299,9 +300,17 @@ export class Tune extends Client {
         })
         .catch(() => null);
     if (!player) throw new Error("Unknown player.");
+    if (this.connections.has(guildId)) this.connections.delete(guildId);
     await this.prisma.player
       .delete({ where: { id: player.id } })
       .catch(() => null);
+    if (player.text_channel_id && player.message_id)
+      await this.rest
+        .delete(
+          Routes.channelMessage(player.text_channel_id, player.message_id),
+          { auth: true }
+        )
+        .catch(() => null);
     const db = await this.prisma.guild
       .findFirst({ where: { id: guildId, platform: "DISCORD" } })
       .catch(() => null);
