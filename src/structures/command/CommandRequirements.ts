@@ -14,7 +14,9 @@ export class CommandRequirements {
   ) {
     if (
       opts.devOnly &&
-      !(context.client.application?.owner as Team).members.has(context.user.id)
+      !(context.client.application?.owner instanceof Team
+        ? context.client.application.owner.members.has(context.user.id)
+        : context.client.application?.owner?.id === context.user.id)
     ) {
       throw new CommandError(context.t("errors:devOnly"), false, context);
     }

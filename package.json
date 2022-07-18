@@ -4,7 +4,7 @@
   "description": "Discord TuneBot application",
   "main": "./src/Tune.js",
   "author": "wearifulcupid0",
-  "license": "MIT",
+  "license": "AGPL-3.0",
   "private": true,
   "type": "commonjs",
   "scripts": {
@@ -13,7 +13,8 @@
     "start": "node --no-warnings ./dist/startup.js",
     "lint": "eslint ./ --ext .ts --fix",
     "types:check": "tsc --noEmit --incremental false",
-    "prisma:migrate": "prisma migrate dev"
+    "prisma:migrate": "prisma migrate dev",
+    "prisma:generate": "prisma generate"
   },
   "devDependencies": {
     "@types/i18next-fs-backend": "^1.1.2",
