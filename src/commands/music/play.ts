@@ -286,6 +286,38 @@ export class Play extends Command {
       );
     }
 
+    if (result.loadType === "PLAYLIST_LOADED") {
+      if (
+        typeof context.guildDB?.allow_playlists === "boolean" &&
+        !context.guildDB.allow_playlists
+      ) {
+        throw new CommandError(
+          context.t("errors:playlistsNotAllowed"),
+          false,
+          context
+        );
+      }
+
+      await this.client.prisma.playerTrack.createMany({
+        data: result.tracks.map((t, i) => ({
+          track: t.track,
+          info: t.info as object,
+          player_id: player?.id as number,
+          index: (player?.index ?? 0) + i,
+          playlistInfo: result.playlistInfo as object | undefined,
+        })),
+      });
+      let playlistName = `\`${result.playlistInfo?.name}\``;
+      if (result.playlistInfo?.uri)
+        playlistName = `[\`${result.playlistInfo.name}\`](${result.playlistInfo.uri})`;
+      embed.setDescription(
+        `${playlistName} **|** ${context.t(
+          `commons:music.${result.tracks.length === 1 ? "song" : "songs"}`,
+          { size: result.tracks.length }
+        )} **|** ${context.user}`
+      );
+    }
+
     await context.stopTyping();
     await context.reply({ embeds: [embed.data] });
 

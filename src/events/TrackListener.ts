@@ -106,11 +106,11 @@ export class TrackListener extends EventListener {
       return;
     }
 
+    const db = await this.getDatabaseConfig(guildId);
+    const t = this.client.i18next.getFixedT(
+      db?.language ?? guild.preferredLocale
+    );
     if (player.text_channel_id) {
-      const db = await this.getDatabaseConfig(guildId);
-      const t = this.client.i18next.getFixedT(
-        db?.language ?? guild.preferredLocale
-      );
       const embed = new EmbedBuilder()
         .setColor(this.client.getColor("MAIN"))
         .setTimestamp()
@@ -129,6 +129,22 @@ export class TrackListener extends EventListener {
           : null,
       });
     }
+    if (
+      db?.auto_update_topic &&
+      voiceChannel.type === ChannelType.GuildStageVoice &&
+      voiceChannel
+        .permissionsFor(this.client.user?.id as string)
+        ?.has(PermissionsBitField.StageModerator, true) &&
+      player.stage_instance_id &&
+      guild.stageInstances.cache.has(player.stage_instance_id)
+    )
+      await guild.stageInstances
+        .edit(voiceChannel, {
+          privacyLevel: StageInstancePrivacyLevel.GuildOnly,
+          topic: t("commons:music.stageQueueEnd"),
+        })
+        .catch(() => null);
+
     Object.assign(data, {
       state: "IDLE",
       idle_since: new Date(),

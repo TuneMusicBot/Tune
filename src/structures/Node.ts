@@ -34,14 +34,16 @@ const buildVersions = (
     lavadsp: headers["lavalink-lavadsp-version"] as string,
     jvm: headers["lavalink-java-version"] as string,
     kotlin: headers["lavalink-kotlin-version"] as string,
-    buildTime: new Date(headers["lavalink-build-time"] as string),
+    buildTime: new Date(Date.parse(headers["lavalink-build-time"] as string)),
     gitLoaded: Boolean(headers["lavalink-gitloaded"]),
   };
 
   if (versions.gitLoaded)
     Object.assign(versions, {
       commit: headers["lavalink-commit"] as string,
-      commitTime: new Date(headers["lavalink-commit-time"] as string),
+      commitTime: new Date(
+        Date.parse(headers["lavalink-commit-time"] as string)
+      ),
       branch: headers["lavalink-branch"],
     });
 
