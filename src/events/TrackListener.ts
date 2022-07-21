@@ -41,6 +41,13 @@ export class TrackListener extends EventListener {
       node.send({ op: "destroy", guildId });
       return;
     }
+    await this.client.prisma.playerAction.create({
+      data: {
+        player_id: player.id,
+        type: "TRACK_END",
+        identifier: track,
+      },
+    });
     const voiceChannel = guild.channels.cache.get(
       player.voice_channel_id
     ) as VoiceBasedChannel;
@@ -163,12 +170,7 @@ export class TrackListener extends EventListener {
     const voiceChannel = guild.channels.cache.get(
       player.voice_channel_id
     ) as VoiceBasedChannel;
-    const data = { actions: player.actions, state: player.state };
-    data.actions.push({
-      id: track,
-      type: "trackStart",
-      time: Date.now(),
-    });
+    const data = { state: player.state };
     const db = await this.getDatabaseConfig(guildId);
     const t = this.client.i18next.getFixedT(
       db?.language ?? guild.preferredLocale
@@ -325,6 +327,9 @@ export class TrackListener extends EventListener {
       });
     }
     await this.updatePlayer(player.id, data);
+    await this.client.prisma.playerAction.create({
+      data: { player_id: player.id, identifier: track, type: "TRACK_START" },
+    });
     await this.updateLastfmProfiles(info, [...voiceChannel.members.values()]);
   }
 
@@ -579,7 +584,7 @@ export class TrackListener extends EventListener {
           throw err;
         });
     const timestamp = DiscordSnowflake.timestampFrom(messageId);
-    if (timestamp + 300_000 < Date.now()) {
+    if (timestamp + 600_000 < Date.now()) {
       await this.client.rest
         .delete(Routes.channelMessage(channelId, messageId))
         .catch(() => null);

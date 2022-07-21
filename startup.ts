@@ -150,4 +150,4 @@ process.on("warning", (warning: any) =>
   tune.logger.warn(warning, { tags: ["Process"] })
 );
 
-Promise.all([tune.login(process.env.DISCORD_TOKEN)]);
+tune.redis.connect().then(() => tune.login(process.env.DISCORD_TOKEN));

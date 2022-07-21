@@ -63,7 +63,6 @@ export class ScheduledEventsListener extends EventListener {
           shard_id: old.guild?.shardId!,
           guild_id: old.guildId!,
           state: "IDLE",
-          actions: [],
           position: 0,
           voice_channel_id: event.channel_id,
           voice_channel_name: current.channel?.name!,

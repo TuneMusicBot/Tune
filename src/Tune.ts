@@ -15,7 +15,6 @@ import { join } from "path";
 import fsBackend from "i18next-fs-backend";
 import i18next, { i18n } from "i18next";
 import { Player, PrismaClient } from "@prisma/client";
-import Redis from "ioredis";
 import { TypingData } from "./@types";
 import { directory } from "./utils/File";
 import { Command } from "./structures/command/Command";
@@ -25,6 +24,7 @@ import { Lastfm } from "./apis/Lastfm";
 import { Autocomplete } from "./apis/Autocomplete";
 import { COLORS } from "./utils/Constants";
 import { Connection } from "./structures/Connection";
+import { RedisMiddleware } from "./redis/RedisMiddleware";
 
 export class Tune extends Client {
   public static readonly bots: string[] = JSON.parse(
@@ -36,13 +36,13 @@ export class Tune extends Client {
   public readonly voiceRegions: Collection<string, VoiceRegion> =
     new Collection();
 
+  public readonly redis = new RedisMiddleware(this);
   public readonly connections: Map<string, Connection> = new Map();
   public readonly typings: Collection<string, TypingData> = new Collection();
   public readonly i18next: i18n = i18next.use(fsBackend);
   public readonly prisma: PrismaClient = new PrismaClient();
   public readonly commands: Array<Command> = [];
   public readonly nodes: Map<number, Node> = new Map();
-  public readonly redis: Redis = new Redis(process.env.REDIS_URL);
   public readonly pendingDeletion: Set<string> = new Set();
   public ready = false;
 
@@ -122,7 +122,6 @@ export class Tune extends Client {
         rejectOnRateLimit: ["/stage-instances"],
       },
     });
-
     this.logger = logger;
 
     const langPath = join(__dirname, "..", "..", "languages");
@@ -144,6 +143,7 @@ export class Tune extends Client {
         this.logger.info("Languages loaded.", { tags: ["i18Next"] });
       }
     );
+    // this.redis.connect().then(() => this.prisma.$use(this.redis.register));
 
     this.rest.on("rateLimited", (ratelimit) =>
       this.logger.warn(
@@ -155,28 +155,6 @@ export class Tune extends Client {
         { tags: ["Discord", "Rest"] }
       )
     );
-
-    this.redis
-      .on("ready", () => {
-        this.logger.info("Connected to redis cache.", { tags: ["Redis"] });
-        this.redis.subscribe("music");
-      })
-      .on("error", (error: any) =>
-        this.logger.error(error, { tags: ["Redis"] })
-      )
-      .on("close", () =>
-        this.logger.debug("Redis cache disconnected.", { tags: ["Redis"] })
-      )
-      .on("reconnecting", () =>
-        this.logger.debug("Reconnecting to the Redis cache.", {
-          tags: ["Redis"],
-        })
-      )
-      .on("end", () =>
-        this.logger.warn("No more reconnections will be made to Redis cache.", {
-          tags: ["Redis"],
-        })
-      );
 
     directory<RawClass<Command>>({
       recursive: true,
@@ -301,6 +279,12 @@ export class Tune extends Client {
         .catch(() => null);
     if (!player) throw new Error("Unknown player.");
     if (this.connections.has(guildId)) this.connections.delete(guildId);
+    // const actions = await this.prisma.playerAction
+    // .findMany({ where: { player_id: player.id } })
+    // .catch(() => null);
+    await this.prisma.playerAction
+      .deleteMany({ where: { player_id: player.id } })
+      .catch(() => null);
     await this.prisma.player
       .delete({ where: { id: player.id } })
       .catch(() => null);

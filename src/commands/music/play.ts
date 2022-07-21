@@ -1,6 +1,8 @@
+/* eslint-disable no-nested-ternary */
 /* eslint-disable camelcase */
 /* eslint-disable @typescript-eslint/no-non-null-asserted-optional-chain */
 /* eslint-disable @typescript-eslint/no-non-null-assertion */
+import { ActionType } from "@prisma/client";
 import {
   Attachment,
   AutocompleteFocusedOption,
@@ -146,7 +148,18 @@ export class Play extends Command {
           context
         );
     }
-    const identifier = file && file.length > 0 ? file[0].url : query;
+    const identifier =
+      file && file.length > 0
+        ? file[0].url
+        : query && Utils.isURL(query)
+        ? query
+        : query
+        ? `${
+            Object.keys(context.flags).find(
+              (k: any) => (context.flags as Record<string, boolean>)[k]
+            ) ?? "yt"
+          }search:${query}`
+        : null;
     if (!identifier)
       throw new CommandError(
         context.t("errors:missingIdentifier"),
@@ -164,7 +177,7 @@ export class Play extends Command {
       })
       .then((players) => players?.[0] ?? null)
       .catch(() => null);
-    if (!player)
+    if (!player) {
       player = await this.client.prisma.player.create({
         data: {
           platform: "DISCORD",
@@ -186,7 +199,6 @@ export class Play extends Command {
               : "STAGE_CHANNEL",
           shard_id: context.guild?.shardId as number,
           state: "IDLE",
-          actions: [{ type: "playerCreate", time: Date.now() }],
           index: 0,
           created_by: context.user.id,
           node_id: voiceChannel.rtcRegion
@@ -194,6 +206,17 @@ export class Play extends Command {
             : undefined,
         },
       });
+      if (context.guild)
+        await this.client.prisma.playerAction.createMany({
+          data: context.guild.voiceStates.cache
+            .filter((s) => s.channelId === voiceChannel.id)
+            .map((s) => ({
+              type: ActionType.MEMBER_JOIN,
+              identifier: s.id,
+              player_id: player?.id as number,
+            })),
+        });
+    }
     if (!this.client.connections.has(player.guild_id))
       this.client.connections.set(
         player.guild_id,

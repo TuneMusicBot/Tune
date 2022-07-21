@@ -70,13 +70,13 @@ export class Connection extends EventEmitter {
         data.channel_id && data.channel_id !== player.voice_channel_id
       );
       if (moved) {
-        const vc = this.guild.channels.resolve(
-          player.voice_channel_id
-        ) as VoiceBasedChannel;
-        const time = Date.now();
-        vc.members.map((_a, id) =>
-          player.actions.push({ id, type: "leftVoiceChannel", time })
-        );
+        // const vc = this.guild.channels.resolve(
+        // player.voice_channel_id
+        // ) as VoiceBasedChannel;
+        // const time = Date.now();
+        // vc.members.map((_a, id) =>
+        // player.actions.push({ id, type: "leftVoiceChannel", time })
+        // );
         this.state = ConnectionStates.MOVING;
         player.voice_channel_id = data.channel_id!;
         const newVC = this.guild.channels.resolve(
@@ -84,9 +84,9 @@ export class Connection extends EventEmitter {
         ) as VoiceBasedChannel;
         player.voice_channel_name = newVC.name;
         this.sessionId = data.session_id;
-        newVC.members.map((_a, id) =>
-          player.actions.push({ id, type: "joinVoiceChannel", time })
-        );
+        // newVC.members.map((_a, id) =>
+        // player.actions.push({ id, type: "joinVoiceChannel", time })
+        // );
         updated = true;
       }
       if (!this.sessionId ?? this.sessionId === data.session_id) {
@@ -371,7 +371,6 @@ export class Connection extends EventEmitter {
       await this.client.prisma.player.update({
         where: { id: player.id },
         data: {
-          actions: player.actions,
           stage_instance_id: player.stage_instance_id,
           state: player.state,
           message_id: player.message_id,

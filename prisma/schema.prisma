@@ -124,7 +124,7 @@ model Player {
   id       Int          @id @unique @default(autoincrement())
   state    PlayerStates
   platform Platforms
-  actions  Json[]       @default([])
+  actions  PlayerAction[]
 
   created_by String
   created_at DateTime @default(now())
@@ -184,6 +184,16 @@ model Game {
   player    Player? @relation(fields: [player_id], references: [id])
 }
 
+model PlayerAction {
+  id         Int        @id @unique @default(autoincrement())
+  type       ActionType
+  identifier String?
+  time       DateTime   @default(now())
+
+  player_id Int     
+  player    Player? @relation(fields: [player_id], references: [id])
+}
+
 model Vote {
   id         Int           @id @unique @default(autoincrement())
   user       String
@@ -233,4 +243,13 @@ enum VoiceChannelTypes {
   VOICE_CHANNEL
   STAGE_CHANNEL
   ACTIVE_STAGE_CHANNEL
+}
+
+enum ActionType {
+  MEMBER_JOIN
+  MEMBER_LEFT
+  TRACK_START
+  TRACK_END
+  PLAYER_PAUSED
+  PLAYER_RESUMED
 }

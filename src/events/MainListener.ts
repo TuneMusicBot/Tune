@@ -25,7 +25,6 @@ export class MainListener extends EventListener {
         "shardResume",
         "ready",
         "interactionCreate",
-        "raw",
       ],
       client
     );
@@ -243,12 +242,8 @@ export class MainListener extends EventListener {
         );
       });
 
-    await Promise.all(
-      this.client.guilds.cache
-        .filter((g) => !g.members.me)
-        // eslint-disable-next-line @typescript-eslint/no-non-null-asserted-optional-chain
-        .map((g) => g.members.fetch(this.client.user?.id!))
-    );
+    await Promise.all(this.client.guilds.cache.map((g) => g.members.fetchMe()));
+    await this.client.redis.requestGuilds();
 
     this.client.ready = true;
     this.client.logger.info(
@@ -272,25 +267,5 @@ export class MainListener extends EventListener {
       this.client.emit("modalSubmit", interaction);
     if (interaction.type === InteractionType.ApplicationCommandAutocomplete)
       this.client.emit("autocomplete", interaction);
-  }
-
-  onRaw(packet: any) {
-    if (
-      packet.t === "VOICE_SERVER_UPDATE" &&
-      this.client.connections.has(packet.d.guild_id)
-    ) {
-      this.client.connections
-        .get(packet.d.guild_id)!
-        .emit("voiceServer", packet.d);
-    }
-    if (
-      packet.t === "VOICE_STATE_UPDATE" &&
-      packet.d.user_id === this.client.user?.id &&
-      this.client.connections.has(packet.d.guild_id)
-    ) {
-      this.client.connections
-        .get(packet.d.guild_id)!
-        .emit("voiceState", packet.d);
-    }
   }
 }

@@ -1,8 +1,10 @@
 import { ClientEvents, Guild } from "discord.js";
 import { TFunction } from "i18next";
 import { EventEmitter } from "events";
+import { Prisma } from "@prisma/client";
 import { Player } from "../structures/player/Player";
 import { TrackEndReasons } from "./lavalink";
+import { RedisMiddleware } from "../redis/RedisMiddleware";
 
 export interface TypingData {
   channelId: string;
@@ -49,6 +51,13 @@ export enum SongTypes {
   MULTI_SONG,
 }
 
+export interface GuildData {
+  states: GatewayVoiceStateUpdateDispatchData[];
+  me: APIGuildMember;
+  roles: { id: string; permissions: string }[];
+  channels: APIGuildChannel[];
+}
+
 export type Events =
   | keyof ClientEvents
   | "buttonClick"
@@ -77,3 +86,11 @@ export type AchievementsNames =
   | "1000HoursListening"
   | "10TracksListened"
   | "100TracksListened";
+export type IModel = Record<
+  Prisma.PrismaAction,
+  (
+    params: Prisma.MiddlewareParams,
+    middleware: RedisMiddleware,
+    next: (p: Prisma.MiddlewareParams) => Promise<any>
+  ) => Promise<any>
+>;

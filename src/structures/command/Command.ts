@@ -157,7 +157,7 @@ export class Command {
           embed.setDescription(`**${description}**`);
         }
         const payload = { embeds: [embed.data], ephemeral: true };
-        if (error.message !== error.context.t("errors:generic")) {
+        if (error.displayHelpButton) {
           const helpButton = new ButtonBuilder()
             .setDisabled(false)
             .setLabel(error.context.t("commons:helpButton"))
