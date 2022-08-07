@@ -1,3 +1,5 @@
+import { ImageFormat } from "eris";
+
 const COLORS: Record<string, number> = {
   MAIN: 14596286,
   ERROR: 14691136,
@@ -5,22 +7,33 @@ const COLORS: Record<string, number> = {
 
 const CUSTOM_TYPES: Record<
   string,
-  { tag: string; displayAvatarURL(input?: object): string }
+  {
+    username: string;
+    discriminator: string;
+    dynamicAvatarURL(format?: ImageFormat, size?: number): string;
+  }
 > = {
   AUTOPLAY: {
-    tag: "commons:music.autoplay",
-    displayAvatarURL: () => process.env.DEFAULT_ARTWORK_URL,
+    username: "commons:music.autoplay",
+    discriminator: "-1",
+    dynamicAvatarURL: () => process.env.DEFAULT_ARTWORK_URL,
   },
   YOUTUBE: {
-    tag: "commons:music.ytNotify",
-    displayAvatarURL: () =>
+    username: "commons:music.ytNotify",
+    discriminator: "-1",
+    dynamicAvatarURL: () =>
       "https://cdn.discordapp.com/emojis/797193117895229452.png",
   },
   TWITCH: {
-    tag: "commons:music.twNotify",
-    displayAvatarURL: () =>
+    username: "commons:music.twNotify",
+    discriminator: "-1",
+    dynamicAvatarURL: () =>
       "https://cdn.discordapp.com/emojis/801575077215862834.png",
   },
+};
+
+const ICONS: Record<string, string> = {
+  DISCORD: "https://cdn.discordapp.com/emojis/797191993624887306.png",
 };
 
 const EMOJIS: Record<string, string> = {
@@ -79,4 +92,4 @@ const EMOJIS: Record<string, string> = {
   LASTFM: "<:lastfm:991046240940720188>",
 };
 
-export { EMOJIS, COLORS, CUSTOM_TYPES };
+export { EMOJIS, COLORS, CUSTOM_TYPES, ICONS };

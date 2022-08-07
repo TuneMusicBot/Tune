@@ -1,5 +1,8 @@
-import { APIUser, User } from "discord.js";
+/* eslint-disable no-fallthrough */
+import { ChannelType } from "discord-api-types/v10";
+import { GuildChannel, TextableChannel } from "eris";
 import { URL } from "url";
+import { Tune } from "../Tune";
 
 export class Utils {
   public static capitalize(str: string): string {
@@ -28,23 +31,46 @@ export class Utils {
     }
   }
 
-  public static userToAPI(user: User): Partial<APIUser> & { id: string } {
-    return {
-      id: user.id,
-      username: user.username,
-      discriminator: user.discriminator,
-      avatar: user.avatar,
-      system: user.system,
-      bot: user.bot,
-      public_flags: user.flags?.bitfield,
-      banner: user.banner,
-      accent_color: user.accentColor,
-      email: undefined,
-      flags: 0,
-      locale: undefined,
-      premium_type: undefined,
-      mfa_enabled: undefined,
-      verified: undefined,
-    };
+  public static reverseObject<
+    T extends string | number,
+    K extends string | number
+  >(input: Record<T, K>): Record<K, T> {
+    const entries: [string, K][] = Object.entries(input);
+    const obj: Record<K, T> = Object.create(null);
+    // @ts-ignore
+    for (const [key, value] of entries) obj[value] = key;
+    return obj as Record<K, T>;
+  }
+
+  // Forked from Discord.JS
+  public static cleanContent(
+    content: string,
+    channel: TextableChannel,
+    client: Tune
+  ) {
+    return content.replaceAll(/<(@[!&]?|#)(\d{17,19})>/g, (match, type, id) => {
+      switch (type) {
+        case "@":
+        case "@!": {
+          if (channel instanceof GuildChannel) {
+            const member = channel.guild.members.get(id);
+            if (member) return `@${member.nick ?? member.username}`;
+          }
+          const user = client.users.get(id);
+          return user ? `@${user.username}` : match;
+        }
+        case "@&": {
+          if (channel.type === ChannelType.DM) return match;
+        }
+        case "#": {
+          const guild = client.guilds.get(client.channelGuildMap[id]);
+          const ch = guild?.channels.get(id);
+          return ch ? `#${ch.name}` : match;
+        }
+        default: {
+          return match;
+        }
+      }
+    });
   }
 }

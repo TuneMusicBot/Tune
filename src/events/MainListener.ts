@@ -1,271 +1,211 @@
-/* eslint-disable @typescript-eslint/no-non-null-assertion */
-import {
-  CloseEvent,
-  DMChannel,
-  Guild,
-  Interaction,
-  InteractionType,
-  VoiceBasedChannel,
-} from "discord.js";
-import { NodeOptions } from "../@types/lavalink";
+import { Platforms } from "@prisma/client";
+import { GuildChannel, OAuthApplicationInfo } from "eris";
+import { Connection, ConnectOptionsTypes } from "../structures/Connection";
 import { EventListener } from "../structures/EventListener";
-import { ExtendedUser } from "../structures/ExtendedUser";
 import { Node } from "../structures/Node";
 import { Tune } from "../Tune";
-import { Connection } from "../structures/Connection";
 
 export class MainListener extends EventListener {
   constructor(client: Tune) {
     super(
       [
-        "shardDisconnect",
-        "shardError",
-        "shardReady",
-        "shardReconnecting",
-        "shardResume",
         "ready",
-        "interactionCreate",
+        "connect",
+        "rawREST",
+        "rawWS",
+        "warn",
+        "shardDisconnect",
+        "shardReady",
+        "shardResume",
+        "error",
+        "hello",
+        "unknown",
+        "channelDelete",
       ],
       client
     );
   }
 
-  onShardDisconnect(close: CloseEvent, shardId: number) {
-    this.client.logger.warn(
-      `Shard ${close.wasClean ? "cleared " : ""}disconnected with code ${
-        close.code
-      }`,
-      { tags: ["Discord", "Gateway", `Shard ${shardId}`] }
-    );
-  }
-
-  onShardError(error: Error, shardId: number) {
-    this.client.logger.error(error as any, {
-      error,
-      tags: ["Discord", "Gateway", `Shard ${shardId}`],
-    });
-  }
-
-  async onShardReady(shardId: number, guilds?: Set<string>) {
-    this.client.logger.info(
-      `Shard ready with ${guilds?.size ?? 0} unavaible guilds.`,
-      { tags: ["Discord", "Gateway", `Shard ${shardId}`] }
-    );
-    if (
-      this.client.nodes.size <= 0 &&
-      (this.client.options.shards as number[])[0] === shardId
-    ) {
-      const nodes: Node[] = JSON.parse(process.env.NODES).map(
-        (opts: NodeOptions) => {
-          const id = this.client.nodes.size;
-          const node = new Node(id, opts, this.client);
-          this.client.nodes.set(id, node);
-          return node;
-        }
-      );
-      await Promise.all(nodes.map((node) => node.connect()));
-    }
-    const unavaible = guilds ? [...guilds.values()] : [];
-    const players = await this.client.prisma.player
-      .findMany({
-        where: {
-          guild_id: {
-            notIn: unavaible,
-            in: [...this.client.guilds.cache.keys()],
-          },
-          shard_id: shardId,
-          bot_id: this.client.user?.id,
-          platform: "DISCORD",
-        },
-      })
-      .catch(() => null);
-    if (!players || players.length <= 0) {
-      this.client.logger.debug("Any player need to be replayed.", {
-        tags: ["Players"],
-      });
-      return;
-    }
-    let tracks = await this.client.prisma.playerTrack
-      .findMany({
-        where: {
-          player_id: { in: players.map((p) => p.id) },
-          index: { in: players.map((p) => p.index) },
-        },
-      })
-      .catch(() => null);
-    if (!tracks) tracks = [];
-    const data = (
-      await Promise.all(
-        players.map(async (player) => {
-          const guild = this.client.guilds.cache.get(player.guild_id) as Guild;
-          const voiceChannel = guild.channels.cache.get(
-            player.voice_channel_id
-          ) as VoiceBasedChannel;
-          if (
-            !voiceChannel ||
-            !voiceChannel
-              .permissionsFor(this.client.user?.id as string)
-              ?.has(["Speak", "Connect", "ViewChannel"], true) ||
-            (!guild.members.me?.permissions.has("ManageChannels", true) &&
-              voiceChannel.userLimit > 0 &&
-              voiceChannel.userLimit <= voiceChannel.members.size) ||
-            (guild.members.me?.isCommunicationDisabled() &&
-              !guild.members.me.permissions.has("Administrator"))
-          ) {
-            await this.client.prisma.player.delete({
-              where: { id: player.id },
-            });
-            await this.client.prisma.playerTrack.deleteMany({
-              where: { player_id: player.id },
-            });
-            return false;
-          }
-          const conn = new Connection(this.client, player.guild_id);
-          this.client.connections.set(player.guild_id, conn);
-          // eslint-disable-next-line no-param-reassign
-          player = await conn.connect(0, player);
-          const np = tracks?.find(
-            (t) => t.index === player.index && t.player_id === player.id
-          );
-          if (player.state !== "IDLE" && np) {
-            const node = this.client.nodes.get(
-              player.node_id as number
-            ) as Node;
-            await Promise.all([
-              node.send({
-                op: "play",
-                track: np.track,
-                startTime: player.position,
-                guildId: player.guild_id,
-              }),
-              node.send({
-                op: "volume",
-                guildId: player.guild_id,
-                volume: player.volume,
-              }),
-            ]);
-          }
-          return true;
-        })
-      )
-    ).reduce(
-      (pre, curr) => {
-        // eslint-disable-next-line no-unused-expressions, no-plusplus
-        curr ? pre.replayed++ : pre.failed++;
-        return pre;
-      },
-      { replayed: 0, failed: 0 }
-    );
-    this.client.logger.debug(
-      `${data.replayed} players has been replayed and ${data.failed} failed.`,
-      { tags: ["Players"] }
-    );
-  }
-
-  onShardReconnecting(shardId: number) {
-    this.client.logger.debug("Shard reconnecting.", {
-      tags: ["Discord", "Gateway", `Shard ${shardId}`],
-    });
-  }
-
-  onShardResume(shardId: number, replayedEvents: number) {
-    this.client.logger.debug(
-      `Shard connection resumed and ${replayedEvents} events has been replayed.`,
+  onConnect(shardId: number) {
+    return this.client.logger.debug(
+      "Connection estabilished. Starting identify/resume.",
       { tags: ["Discord", "Gateway", `Shard ${shardId}`] }
     );
   }
 
   async onReady() {
-    if (this.client.voiceRegions.size === 0) {
-      const regions = await this.client.fetchVoiceRegions();
-      this.client.logger.info(`Fetched ${regions.size} voice regions.`, {
-        tags: ["Discord", "Voice"],
-      });
-      regions.forEach((value, key) => {
-        if (this.client.voiceRegions.has(key))
-          this.client.voiceRegions.delete(key);
-        this.client.voiceRegions.set(key, value);
-      });
-    }
-    if (this.client.application?.partial) await this.client.application.fetch();
-
-    await this.client.prisma.userConnection
-      .findMany({
-        where: {
-          platform: "DISCORD",
-          id: { in: [...this.client.users.cache.keys()] },
-        },
-      })
-      .then(async (users) => {
-        const discordUsers: { id: number; discord: ExtendedUser }[] = users.map(
-          (user) => {
-            if (
-              user.dm_channel_id &&
-              !this.client.channels.cache.has(user.dm_channel_id)
-            ) {
-              const data = {
-                id: user.dm_channel_id,
-                recipients: [{ id: user.id }],
-                last_message_id: null,
-                last_pin_timestamp: null,
-              };
-              this.client.channels.cache.set(
-                user.dm_channel_id,
-                // @ts-ignore
-                new DMChannel(this, data)
-              );
-            }
-            const discord = ExtendedUser.toExtendedUser(user.id, this.client);
-            if (user.access_token)
-              discord.patchAuth({
-                access_token: user.access_token,
-                refresh_token: user.refresh_token!,
-                expires_at: user.expires_at!,
-                scope: user.scopes.join(" "),
-                expires_in: 0,
-                token_type: "Bearer",
-              });
-            return { discord, id: user.user_id };
-          }
-        );
-        const accounts = await this.client.prisma.user.findMany({
-          where: { id: { in: users.map((u) => u.user_id) } },
-        });
-        accounts.forEach((account) => {
-          const user = discordUsers.find(({ id }) => id === account.id)
-            ?.discord as ExtendedUser;
-          user.setAccount(account);
-        });
-        this.client.logger.info(
-          `Loaded ${accounts.length} accounts from database.`,
-          { tags: ["PostgreSQL"] }
-        );
-      });
-
-    await Promise.all(this.client.guilds.cache.map((g) => g.members.fetchMe()));
-    await this.client.redis.requestGuilds();
-
-    this.client.ready = true;
+    this.client.application =
+      (await this.client.getOAuthApplication()) as OAuthApplicationInfo & {
+        flags: number;
+      };
     this.client.logger.info(
-      `Client ready as ${this.client.user?.tag}, on application ${this.client.application?.name}`,
-      { tags: ["Discord"] }
+      `All shards became ready. Logged as ${this.client.user.username}#${this.client.user.discriminator} on application ${this.client.application.name}`,
+      { tags: ["Discord", "Client"] }
     );
   }
 
-  onInteractionCreate(interaction: Interaction) {
-    ExtendedUser.toExtendedUser(interaction.user, this.client).setLocale(
-      interaction.locale
-    );
-    if (interaction.isChatInputCommand())
-      this.client.emit("slashCommand", interaction);
-    if (interaction.isButton()) this.client.emit("buttonClick", interaction);
-    if (interaction.isSelectMenu())
-      this.client.emit("selectMenuClick", interaction);
-    if (interaction.isContextMenuCommand())
-      this.client.emit("contextMenu", interaction);
-    if (interaction.type === InteractionType.ModalSubmit)
-      this.client.emit("modalSubmit", interaction);
-    if (interaction.type === InteractionType.ApplicationCommandAutocomplete)
-      this.client.emit("autocomplete", interaction);
+  onWarn(message: string | Error, shardId?: number) {
+    const string = typeof message === "string" ? message : message.message;
+    if (string.toLowerCase().includes("unknown interaction type")) return;
+    const tags: string[] = ["Discord", "Client"];
+    if (typeof shardId === "number")
+      tags.splice(1, 0, "Gateway").push(`Shard ${shardId}`);
+    this.client.logger.warn(message as any, { tags });
+  }
+
+  onError(err?: Error, shardId?: number) {
+    if (!err) return;
+    const tags: string[] = ["Discord", "Client"];
+    if (typeof shardId === "number")
+      tags.splice(1, 0, "Gateway").push(`Shard ${shardId}`);
+    this.client.logger.error(err as any, { tags });
+  }
+
+  onUnknown(packet: unknown, shardId?: number) {
+    const tags: string[] = ["Discord", "Client"];
+    if (typeof shardId === "number")
+      tags.splice(1, 0, "Gateway").push(`Shard ${shardId}`);
+    this.client.logger.debug(`Unknown payload: ${packet}`, { tags });
+  }
+
+  onHello(trace: string[], shardId: number) {
+    this.client.logger.debug(`Received hello with trace ${trace.join(", ")}`, {
+      tags: ["Discord", "Gateway", `Shard ${shardId}`],
+    });
+  }
+
+  onShardDisconnect(
+    err: Error | string = "Shard disconnected",
+    shardId: number
+  ) {
+    if (
+      err instanceof Error &&
+      err.message.toLowerCase().includes("connection reset by peer")
+    )
+      return;
+    this.client.logger.error(err as any, {
+      tags: ["Discord", "Gateway", `Shard ${shardId}`],
+    });
+  }
+
+  async onShardReady(shardId: number) {
+    this.client.logger.debug("Shard session ready.", {
+      tags: ["Discord", "Gateway", `Shard ${shardId}`],
+    });
+    if (
+      shardId === this.client.shards.options.firstShardID &&
+      this.client.nodes.size <= 0
+    ) {
+      const infos = JSON.parse(process.env.NODES);
+      const nodes = infos.map(
+        (info: any, id: number) => new Node(id, info, this.client)
+      );
+      await Promise.all(
+        nodes.map(async (n: Node) => {
+          this.client.nodes.set(n.id, n);
+          await n.connect();
+          return n;
+        })
+      );
+    }
+    const guilds = this.client.guilds.filter((g) => g.shard.id === shardId);
+    if (guilds.length > 0) {
+      const players = await this.client.prisma.player
+        .findMany({
+          where: {
+            guild_id: { in: guilds.map((g) => g.id) },
+            platform: Platforms.DISCORD,
+            bot_id: process.env.DISCORD_CLIENT_ID,
+          },
+        })
+        .catch(() => []);
+      if (players.length <= 0) {
+        this.client.logger.info("Any session needed to be resumed.", {
+          tags: ["Players"],
+        });
+        return;
+      }
+      const deletePlayers: Set<number> = new Set();
+      players.forEach(async (player) => {
+        if (player.idle_since) {
+          const timestamp = player.idle_since.getTime();
+          if (timestamp + 300_000 < Date.now())
+            return deletePlayers.add(player.id);
+        }
+        const connection = new Connection(this.client, player.guild_id);
+        this.client.connections.set(player.guild_id, connection);
+        const node = await connection.connect({
+          type: ConnectOptionsTypes.COMPLETE,
+          player,
+          confirm: false,
+        });
+        if (node.id !== player.node_id)
+          await this.client.prisma.player.update({
+            where: { id: player.id },
+            data: { node_id: node.id },
+          });
+        await node.send({
+          op: "volume",
+          guildId: player.guild_id,
+          volume: player.volume,
+        });
+        const np = await this.client.prisma.playerTrack
+          .findFirst({ where: { player_id: player.id, index: player.index } })
+          .catch(() => null);
+        if (np)
+          await node.send({
+            op: "play",
+            track: np.track,
+            guildId: player.guild_id,
+            startTime: player.position,
+            paused: ["PAUSED", "MUTED"].includes(player.state),
+          });
+        return null;
+      });
+      const resumedPlayers = players.length - deletePlayers.size;
+      if (deletePlayers.size > 0) {
+        const playersIds = [...deletePlayers.values()];
+        await this.client.prisma.playerAction.deleteMany({
+          where: { player_id: { in: playersIds } },
+        });
+        await this.client.prisma.playerTrack.deleteMany({
+          where: { player_id: { in: playersIds } },
+        });
+        await this.client.prisma.player.deleteMany({
+          where: {
+            id: { in: playersIds },
+            bot_id: process.env.DISCORD_CLIENT_ID,
+            platform: Platforms.DISCORD,
+          },
+        });
+        players
+          .filter((p) => p.message_id && p.text_channel_id)
+          .forEach((p) =>
+            this.client
+              .deleteMessage(
+                p.text_channel_id as string,
+                p.message_id as string
+              )
+              .catch(() => null)
+          );
+      }
+      this.client.logger.info(
+        `${resumedPlayers} players resumed. ${deletePlayers.size} deleted.`,
+        { tags: ["Players"] }
+      );
+    }
+  }
+
+  onShardResume(shardId: number) {
+    this.client.logger.debug("Shard connection resumed.", {
+      tags: ["Discord", "Gateway", `Shard ${shardId}`],
+    });
+  }
+
+  onChannelDelete(channel: GuildChannel) {
+    const typing = this.client.typings.get(channel.id);
+    if (!typing) return;
+    clearInterval(typing.interval);
+    this.client.typings.delete(channel.id);
   }
 }

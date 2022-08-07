@@ -54,7 +54,7 @@ model PlaylistSong {
 model SyncEvent {
   id              String   @id
   auto_unsupress  Boolean
-  initial_tracks  String[]
+  initial_tracks  String[] @default([])
   synchronizer_id String
   guild_id        String
   channel_id      String
@@ -66,7 +66,8 @@ model SyncEvent {
 }
 
 model GuildPermission {
-  id                String              @id @default("everyone")
+  permission        Int                 @id @default(autoincrement())
+  id                String              @default("everyone")
   type              GuildPermissionType
   allow             Int                 @default(76)
   deny              Int                 @default(50)
@@ -93,24 +94,24 @@ model Blacklist {
 }
 
 model User {
-  id            Int      @id @default(autoincrement())
+  id            Int      @id @unique @default(autoincrement())
   language      String   @default("en-US")
   logged_at     DateTime @default(now())
-  recent_search Json[]
+  recent_search Json[]   @default([])
   achievements  Int      @default(0)
 
   @@map("user")
 }
 
 model UserConnection {
-  id        String                  @id
+  id        String                  @id @unique
   logged_at DateTime                @default(now())
   platform  UserConnectionPlatforms
 
-  access_token  String
+  access_token  String?
   refresh_token String?
   expires_at    DateTime?
-  scopes        String[]
+  scopes        String[]            @default([])
 
   config        Json
   dm_channel_id String?

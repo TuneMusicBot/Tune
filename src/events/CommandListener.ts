@@ -1,246 +1,132 @@
-/* eslint-disable @typescript-eslint/no-non-null-assertion */
-import {
-  AutocompleteInteraction,
-  ButtonInteraction,
-  ChannelType,
-  ChatInputCommandInteraction,
-  ContextMenuCommandInteraction,
-  EmbedBuilder,
-  Message,
-} from "discord.js";
-import { AutocompleteCommandContext } from "../structures/command/context/AutocompleteCommandContext";
-import { MessageCommandContext } from "../structures/command/context/MessageCommandContext";
-import { SlashCommandContext } from "../structures/command/context/SlashCommandContext";
+import { UserConnectionPlatforms, User as Account } from "@prisma/client";
+import { PermissionFlagsBits } from "discord-api-types/v10";
+import { GuildTextableChannel, Message, User } from "eris";
+import { CommandContext } from "../structures/command/CommandContext";
 import { EventListener } from "../structures/EventListener";
 import { Tune } from "../Tune";
 
 export class CommandListener extends EventListener {
   constructor(client: Tune) {
-    super(
-      [
-        "messageCreate",
-        "slashCommand",
-        "contextMenu",
-        "autocomplete",
-        "buttonClick",
-      ],
-      client
-    );
+    super(["messageCreate"], client);
   }
 
-  async onMessageCreate(message: Message) {
-    if (
-      !message.guildId ||
-      !message.guild ||
-      message.channel.type === ChannelType.DM ||
-      !this.client.ready
-    )
-      return;
-    // if (this.client.players.has(message.guildId)) {
-    // const player = this.client.players.get(message.guildId)!;
-    // eslint-disable-next-line no-plusplus
-    // if (player.textId === message.channelId) player.message.index++;
-    // }
+  async on(message: Message) {
+    if (!message.guildID) return;
     if (message.author.bot) return;
+    const guild = this.client.guilds.get(message.guildID);
+    if (!guild) return;
+    const channel = message.channel as GuildTextableChannel;
+    const permissions = channel.permissionsOf(this.client.user.id);
+    const me =
+      guild.members.get(this.client.user.id) ||
+      (await guild.getRESTMember(this.client.user.id));
+    guild.members.set(this.client.user.id, me);
     if (
-      !message.channel
-        .permissionsFor(message.guild.members.me!)
-        .has(["SendMessages", "ViewChannel"], true)
+      !me.permissions.has(PermissionFlagsBits.Administrator) ||
+      !(
+        permissions.has(PermissionFlagsBits.ViewChannel) &&
+        permissions.has(PermissionFlagsBits.SendMessages)
+      )
     )
       return;
-    const guildDatabase = await this.client.prisma.guild
-      .findFirst({ where: { id: message.guildId } })
-      .catch(() => null);
-    const prefixes: string[] =
-      guildDatabase?.prefixes && guildDatabase.prefixes.length > 0
-        ? guildDatabase.prefixes
-        : [process.env.DEFAULT_PREFIX];
-    const botMentions = [
-      `<@!${this.client.user?.id}>`,
-      `<@${this.client.user?.id}>`,
+    const prefixes = this.client.prefixes[message.guildID] ?? [
+      process.env.DEFAULT_PREFIX,
     ];
-    prefixes.push(...botMentions);
-    let usedPrefix = "";
-    if (
-      prefixes.some((prefix) => {
-        const result = message.content.startsWith(prefix);
-        if (result) usedPrefix = prefix;
-        return result;
-      })
-    ) {
-      const t = this.client.i18next.getFixedT(
-        guildDatabase?.language ?? message.guild.preferredLocale
+    const botMentions = [
+      `<@!${this.client.user.id}>`,
+      `<@${this.client.user.id}>`,
+    ];
+    const targetPrefix =
+      botMentions.find((m) => message.content.startsWith(m)) ||
+      prefixes.find((p) => message.content.startsWith(p));
+    if (!targetPrefix) return;
+    const nonPrefix = message.content.substring(targetPrefix.length);
+    const args = nonPrefix.split(/[ \t]+/).filter((a) => a);
+    if (botMentions.includes(targetPrefix) && args.length <= 0) {
+      const { account } = await this.getConnectionAndAccount(
+        message.author,
+        guild.preferredLocale
       );
-      const nonPrefix = message.content.substring(usedPrefix.length);
-      let cName = "";
-      const command = this.client.commands.find((c) => {
-        if (nonPrefix.startsWith(c.name)) {
-          cName = c.name;
+      const t = this.client.i18next.getFixedT(account?.language as string);
+      message.channel.createMessage({
+        messageReference: {
+          messageID: message.id,
+          channelID: message.channel.id,
+          guildID: message.guildID,
+          failIfNotExists: false,
+        },
+        content: t(`commons:mentionPrefix${prefixes.length > 1 ? "s" : ""}`, {
+          userId: message.author.id,
+          prefixes: prefixes.map((p) => `\`${p}\``).join(", "),
+        }),
+      });
+      return;
+    }
+    let targetCommandName = "";
+    const lowerCase = nonPrefix.toLowerCase();
+    const command = this.client.commands.find((c) => {
+      if (lowerCase.startsWith(c.name.toLowerCase())) {
+        targetCommandName = c.name;
+        return true;
+      }
+      return c.aliases.some((a) => {
+        if (lowerCase.startsWith(a.toLowerCase())) {
+          targetCommandName = a;
           return true;
         }
-        return c.aliases.some((a) => {
-          if (nonPrefix.startsWith(a)) {
-            cName = a;
-            return true;
-          }
-          return false;
-        });
+        return false;
       });
-      if (!command) {
-        if (botMentions.includes(usedPrefix))
-          message.reply(
-            t(
-              `commons:${
-                prefixes.length - 2 === 1 ? "mentionPrefix" : "mentionPrefixes"
-              }`,
-              {
-                userId: message.author.id,
-                prefixes: prefixes
-                  .filter((p) => !botMentions.includes(p))
-                  .slice(0, 25)
-                  .map((p) => `\`${p}\``)
-                  .join("**, **"),
-              }
-            )
-          );
-        return;
-      }
-      const args = nonPrefix
-        .substring(cName.length)
-        .split(/[ \t]+/)
-        .filter((a) => a);
-      if (command) {
-        if (
-          !message.channel
-            .permissionsFor(message.guild.members.me!)
-            .has("EmbedLinks", true)
-        ) {
-          message.reply(
-            t("errors:missingEmbedLinks", { userId: message.author.id })
-          );
-          return;
-        }
-        const context = new MessageCommandContext(
-          message,
-          command,
-          guildDatabase?.language ?? message.guild.preferredLocale,
-          guildDatabase
-        );
-        command.handleMessage(context, args);
-      }
-    } else if (message.channelId === guildDatabase?.thread_id) {
-      const command = this.client.commands.find((c) => c.name === "play")!;
-      const args = message.content.split(/[ \t]+/).filter((a) => a);
-      const context = new MessageCommandContext(
-        message,
-        command,
-        guildDatabase?.language ?? message.guild.preferredLocale
-      );
-      command.handleMessage(context, args);
+    });
+    if (!command) return;
+    const splitted = targetCommandName.split(" ");
+    const splittedArgs = args.splice(0, splitted.length);
+    if (!splittedArgs.some((a, i) => a === splitted[i])) return;
+    const { account, connection } = await this.getConnectionAndAccount(
+      message.author,
+      guild.preferredLocale
+    );
+    const settings = await this.client.prisma.guild
+      .findFirst({ where: { id: message.guildID, platform: "DISCORD" } })
+      .catch(() => null);
+    const context = new CommandContext(
+      message,
+      this.client,
+      account as Account,
+      command,
+      connection,
+      settings ?? undefined
+    );
+    command.handleMessageCmmand(context, args);
+  }
+
+  private async getConnectionAndAccount(user: User, language?: string) {
+    let connection = await this.client.prisma.userConnection
+      .findUnique({
+        where: { id: user.id },
+      })
+      .catch(() => null);
+    let account;
+    if (!connection) {
+      account = await this.client.prisma.user.create({
+        data: {
+          language,
+        },
+      });
+      connection = await this.client.prisma.userConnection.create({
+        data: {
+          id: user.id,
+          dm_channel_id: this.client.privateChannelMap[user.id],
+          platform: UserConnectionPlatforms.DISCORD,
+          user_id: account.id,
+          config: {},
+        },
+      });
+    } else {
+      account = await this.client.prisma.user.findUnique({
+        where: { id: connection.user_id },
+      });
     }
-  }
 
-  async onSlashCommand(interaction: ChatInputCommandInteraction) {
-    let guildDB = null;
-    if (interaction.guildId)
-      guildDB = await this.client.prisma.guild
-        .findFirst({ where: { id: interaction.guildId } })
-        .catch(() => null);
-    const locale =
-      guildDB?.language ?? interaction.guildLocale ?? interaction.locale;
-    const t = this.client.i18next.getFixedT(locale);
-    if (!this.client.ready)
-      return interaction.reply({
-        content: t("commons:notReady"),
-        ephemeral: true,
-      });
-
-    const fullName = [
-      interaction.commandName,
-      interaction.options.getSubcommandGroup(),
-      interaction.options.getSubcommand(),
-    ]
-      .filter((a) => a)
-      .join(" ");
-
-    const command = this.client.commands.find(
-      (c) => c.type === 0 && c.name === fullName
-    );
-    if (!command)
-      return interaction.reply({
-        content: t("commons:commandNotFound", { userId: interaction.user.id }),
-        ephemeral: true,
-      });
-
-    const context = new SlashCommandContext(interaction, command, guildDB);
-    return command.handleSlash(context);
-  }
-
-  async onContextMenu(interaction: ContextMenuCommandInteraction) {
-    let guildDB = null;
-    if (interaction.guildId)
-      guildDB = await this.client.prisma.guild
-        .findFirst({ where: { id: interaction.guildId } })
-        .catch(() => null);
-    const locale =
-      guildDB?.language ?? interaction.guildLocale ?? interaction.locale;
-    const t = this.client.i18next.getFixedT(locale);
-    if (!this.client.ready)
-      return interaction.reply({
-        content: t("commons:notReady"),
-        ephemeral: true,
-      });
-
-    const command = this.client.commands.find(
-      (c) => c.type === 1 && c.name === interaction.commandName
-    );
-    if (!command)
-      return interaction.reply({
-        content: t("commons:commandNotFound", { userId: interaction.user.id }),
-        ephemeral: true,
-      });
-
-    const context = new SlashCommandContext(interaction, command, guildDB);
-    return command.handleSlash(context);
-  }
-
-  onAutocomplete(interaction: AutocompleteInteraction) {
-    if (!this.client.ready) return interaction.respond([]);
-
-    const fullName = [
-      interaction.commandName,
-      interaction.options.getSubcommandGroup(),
-      interaction.options.getSubcommand(),
-    ]
-      .filter((a) => a)
-      .join(" ");
-
-    const command = this.client.commands.find(
-      (c) => c.type === 0 && c.name === fullName
-    );
-    if (!command) return interaction.respond([]);
-
-    const context = new AutocompleteCommandContext(interaction, command);
-    return command.autocomplete(context, interaction.options.getFocused(true));
-  }
-
-  onButtonClick(interaction: ButtonInteraction) {
-    if (!interaction.customId.startsWith("help-")) return;
-    const authorId =
-      interaction.message.mentions.repliedUser?.id ??
-      interaction.message.interaction?.user.id;
-    if (authorId !== interaction.user.id) {
-      const embed = new EmbedBuilder();
-      embed
-        .setTimestamp()
-        .setFooter({ text: interaction.user.tag })
-        .setColor(this.client.getColor("ERROR"))
-        .setDescription(
-          `**${this.client.i18next.getFixedT(interaction.locale)(
-            "errors:invalidUserButton"
-          )}**`
-        );
-      interaction.reply({ embeds: [embed.data], ephemeral: true });
-    }
+    return { connection, account };
   }
 }

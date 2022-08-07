@@ -39,6 +39,7 @@
         "import/extensions": "off",
         "radix": "off",
         "import/no-unresolved": "off",
+        "no-async-promise-executor": "off",
         "lines-between-class-members": [
             "error",
             "always",
@@ -59,6 +60,7 @@
         "no-continue": "off",
         "no-console": "off",
         "no-use-before-define": "off",
+        "no-shadow": "off",
         "no-plusplus": [
             "error",
             {

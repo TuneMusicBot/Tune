@@ -9,16 +9,10 @@ export class Autocomplete {
   private soundcloudClientId: string | null = null;
 
   private bilibili(term: string): Promise<AutocompleteResult[]> {
-    const params = new URLSearchParams({
-      func: "suggest",
-      suggest_type: "accurate",
-      sub_type: "tag",
-      main_ver: "v1",
-      tag_num: "25",
-      term,
-    });
     return request(
-      `https://s.search.bilibili.com/main/suggest?${params.toString()}`
+      `https://s.search.bilibili.com/main/suggest?func=suggest&suggest_type=accurate&sub_type=tag&main_ver=v1&tag_num=25&term=${encodeURIComponent(
+        term
+      )}`
     )
       .then((r) => r.body.json())
       .then((r) => {
@@ -74,15 +68,12 @@ export class Autocomplete {
 
   private odysee(s: string): Promise<AutocompleteResult[]> {
     return request(
-      `https://lighthouse.odysee.com/search?${new URLSearchParams({
-        s,
-        size: "25",
-      })}`,
+      `https://lighthouse.odysee.com/search?s=${encodeURIComponent(s)}&size=25`,
       { method: "GET" }
     )
       .then((r) => r.body.json())
       .then((r) =>
-        r.map((a: { name: string }) => ({
+        r.splice(0, 25).map((a: { name: string }) => ({
           name: Utils.limit(a.name, 97),
           value: Utils.limit(a.name, 97),
         }))
@@ -124,7 +115,7 @@ export class Autocomplete {
 
   private async fetchSoundcloudClientId() {
     const $ = await request("https://soundcloud.com", { method: "GET" }).then(
-      async (r) => load(await r.body.json())
+      async (r) => load(await r.body.text())
     );
     const elements = $('script[src*="sndcdn.com/assets/"][src$=".js"]').get();
     elements.reverse();
@@ -175,15 +166,14 @@ export class Autocomplete {
       .catch(() => []);
   }
 
-  private youtube(q: string): Promise<AutocompleteResult[]> {
-    const params = new URLSearchParams({
-      client: "youtube",
-      ds: "yt",
-      callback: "json",
-      q,
-    });
+  private youtube(q: string, locale = "en-US"): Promise<AutocompleteResult[]> {
+    const [hl, gl] = locale.split("-");
     return request(
-      `https://suggestqueries-clients6.youtube.com/complete/search?${params.toString()}`,
+      `https://suggestqueries-clients6.youtube.com/complete/search?client=youtube&ds=yt&callback=json&q=${encodeURIComponent(
+        q
+      )}&hl=${encodeURIComponent(hl)}&gl=${encodeURIComponent(
+        gl.toUpperCase()
+      )}`,
       { method: "GET" }
     )
       .then((r) => r.body.arrayBuffer())
@@ -202,11 +192,69 @@ export class Autocomplete {
       .catch(() => []);
   }
 
-  public handle(input: string, source: string): Promise<AutocompleteResult[]> {
+  private youtubeMusic(
+    input: string,
+    locale = "en-US"
+  ): Promise<AutocompleteResult[]> {
+    const [hl, gl] = locale.split("-");
+    return request(
+      "https://music.youtube.com/youtubei/v1/music/get_search_suggestions?key=AIzaSyC9XL3ZjWddXya6X74dJoCTL-WEYFDNX30",
+      {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          origin: "https://music.youtube.com/",
+          referer: "https://music.youtube.com",
+        },
+        body: JSON.stringify({
+          context: {
+            client: {
+              clientName: "WEB_REMIX",
+              clientVersion: "0.1",
+              hl,
+              gl: gl.toUpperCase(),
+            },
+          },
+          input,
+        }),
+      }
+    )
+      .then(async (response) => {
+        if (response.statusCode === 200) {
+          const json = await response.body.json();
+          const results =
+            json?.contents?.[0]?.searchSuggestionsSectionRenderer?.contents;
+          if (!Array.isArray(results)) return [];
+          return results
+            .splice(0, 25)
+            .filter((r) => r.searchSuggestionRenderer?.suggestion)
+            .map((r) => {
+              const name = Utils.limit(
+                r.searchSuggestionRenderer.suggestion.runs
+                  .map((a: any) => a.text)
+                  .join(""),
+                97
+              );
+              return { name, value: name };
+            });
+        }
+        return [];
+      })
+      .catch(() => []);
+  }
+
+  public handle(
+    input: string,
+    source: string,
+    locale?: string
+  ): Promise<AutocompleteResult[]> {
     switch (source.toLowerCase()) {
       case "yt":
       case "youtube":
-        return this.youtube(input);
+        return this.youtube(input, locale);
+      case "ytm":
+      case "youtube-music":
+        return this.youtubeMusic(input, locale);
       case "sc":
       case "soundcloud":
         return this.soundcloud(input);

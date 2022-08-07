@@ -1,12 +1,7 @@
 import { PermissionsString } from "discord.js";
+import { Member } from "eris";
+import { GatewayActivity } from "discord-api-types/v10";
 import { PermissionsNames } from ".";
-
-// eslint-disable-next-line no-shadow
-export enum CommandTypes {
-  COMMAND,
-  CONTEXT_MENU,
-  MODAL_SUBMIT,
-}
 
 export interface Option {
   name: string;
@@ -19,16 +14,16 @@ export interface Option {
 export interface CommandOptions {
   name: string;
   type: CommandTypes;
-  voice: boolean;
-  replyPrivate: boolean;
+  voiceHasPriority: boolean;
+  ephemeral: boolean;
   private?: boolean;
   category?: CommandCategories;
   aliases?: string[];
   parameters?: CommandParameter[];
   flags?: CommandParameter[];
-  requirements?: CommandRequirementsOpts;
-  parent?: string;
   slashOrder?: string[];
+  requirements?: CommandRequirementsOpts;
+  id?: string;
 }
 
 export interface CommandParameter {
@@ -64,7 +59,6 @@ export interface AttachmentOpts extends CommandParameter {
   contentTypes?: string[];
   throwContent?: boolean;
   max: number;
-  min: number;
 }
 
 export interface BooleanFlagOpts extends CommandParameter {
@@ -88,6 +82,26 @@ export interface StringOpts extends CommandParameter {
   upperCase: boolean;
 }
 
+export interface UserOpts extends CommandParameter {
+  type: "user";
+  acceptBot: boolean;
+  acceptUser: boolean;
+  acceptSelf: boolean;
+  forceFetch: boolean;
+}
+
+export interface ActivityOpts extends UserOpts {
+  type: "activity";
+  validateActivity?: (
+    activity: GatewayActivity,
+    member: Member
+  ) => Promise<boolean> | boolean;
+}
+
+export interface RoleOpts extends CommandParameter {
+  type: "role";
+}
+
 export type CommandParameterTypes =
   | "message"
   | "user"
@@ -99,6 +113,7 @@ export type CommandParameterTypes =
   | "channel"
   | "number"
   | "role"
+  | "activity"
   | "unknown";
 export type CommandCategories =
   | "account"

@@ -9,7 +9,6 @@ import leapYear from "dayjs/plugin/isLeapYear";
 import duration from "dayjs/plugin/duration";
 import dayjs from "dayjs";
 import { Tune } from "./src/Tune";
-import { CommandError } from "./src/structures/command/CommandError";
 import { Sentry } from "./src/structures/logger/Sentry";
 
 const logger = winston.createLogger({
@@ -119,7 +118,7 @@ logger.info("Day.JS loaded.", { tags: ["DayJS"] });
 
 const tune = new Tune(logger);
 
-if (process.env.DISCORD_CLIENT_ID === Tune.bots[0]) {
+/* if (process.env.DISCORD_CLIENT_ID === Tune.bots[0]) {
   const path = join(__dirname, "..", "theme", "active");
   logger.debug("Oh main bot! Applying theme config...", {
     tags: ["Theme"],
@@ -129,25 +128,17 @@ if (process.env.DISCORD_CLIENT_ID === Tune.bots[0]) {
     tune.options.presence = theme.presence ?? tune.options.presence;
     await tune.loadTheme(path);
   });
-}
+} */
 
 process.on("uncaughtException", (error: any) => {
-  if (error instanceof CommandError) {
-    error.context.command.handleError(error);
-    return;
-  }
   tune.logger.error(error as any, { tags: ["Process"] });
 });
 process.on("unhandledRejection", (error: any, promise) => {
-  if (error instanceof CommandError) {
-    error.context.command.handleError(error);
-    return;
-  }
   if (typeof error === "object") Object.assign(error, { promise });
   tune.logger.error(error, { tags: ["Process"] });
 });
-process.on("warning", (warning: any) =>
-  tune.logger.warn(warning, { tags: ["Process"] })
+process.on("warning", (warning) =>
+  tune.logger.warn(warning.message, { tags: ["Process"] })
 );
 
-tune.redis.connect().then(() => tune.login(process.env.DISCORD_TOKEN));
+tune.init();

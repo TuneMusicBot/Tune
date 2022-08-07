@@ -2,12 +2,12 @@
 /* eslint-disable @typescript-eslint/no-non-null-assertion */
 import WebSocket, { RawData } from "ws";
 import crypto from "crypto";
-import { APIUser, Snowflake } from "discord.js";
 import { IncomingMessage, IncomingHttpHeaders } from "http";
 import undici from "undici";
 import { HttpMethod } from "undici/types/dispatcher";
 import { DiscordSnowflake } from "@sapphire/snowflake";
-import { ConnectionStates, ConnectTypes } from "./Connection";
+import { APIUser } from "discord-api-types/v10";
+import { ConnectionStates, ConnectOptionsTypes } from "./Connection";
 import Package from "../../package.json";
 import { Tune } from "../Tune";
 import {
@@ -73,7 +73,7 @@ interface DecodedTrack {
       APIUser,
       "email" | "verified" | "flags" | "mfa_enabled" | "premium_type" | "locale"
     >
-  > & { id: Snowflake };
+  > & { id: string };
   track: string;
   info: TrackInfo;
 }
@@ -430,19 +430,22 @@ export class Node {
         "A resuming was expected, but didn't receive one. Reconnecting players...",
         { tags: ["Music", `Node ${this.id}`] }
       );
-      const players = await this.client.prisma.player.findMany({
-        where: {
-          guild_id: { in: [...this.client.guilds.cache.keys()] },
-          node_id: this.id,
-          // eslint-disable-next-line @typescript-eslint/no-non-null-asserted-optional-chain
-          shard_id: { in: this.client.shard?.ids! },
-          bot_id: process.env.DISCORD_CLIENT_ID,
-        },
-      });
       if (this.loadingTracks.length > 0)
         this.loadingTracks.map(({ user, nonce, identifier }) =>
           this.send({ op: "loadTracks", user, nonce, identifier })
         );
+      const players = await this.client.prisma.player.findMany({
+        where: {
+          guild_id: {
+            in: [...this.client.guilds.keys()].map((a) => String(a)),
+          },
+          node_id: this.id,
+          shard_id: {
+            in: [...this.client.shards.keys()].map((a) => Number(a)),
+          },
+          bot_id: process.env.DISCORD_CLIENT_ID,
+        },
+      });
       if (players && players.length > 0) {
         const tracks = await this.client.prisma.playerTrack
           .findMany({
@@ -455,7 +458,11 @@ export class Node {
         return players.map(async (player) => {
           const connection = this.client.connections.get(player.guild_id)!;
           connection.state = ConnectionStates.DISCONNECTED;
-          await connection.connect(ConnectTypes.LAVALINK_ONLY);
+          await connection.connect({
+            player,
+            type: ConnectOptionsTypes.WEBSOCKET_ONLY,
+            confirm: false,
+          });
           const track = tracks?.find(
             (a) => a.player_id === player.id && a.index === player.index
           );
@@ -465,7 +472,6 @@ export class Node {
               guildId: player.guild_id,
               pause: ["PAUSED", "MUTED"].includes(player.state),
               startTime: player.position,
-              volume: player.volume,
               track: track.track,
             });
             await this.send({

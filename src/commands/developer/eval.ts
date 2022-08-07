@@ -1,28 +1,28 @@
 import { inspect } from "util";
 import { exec } from "child_process";
-import { Command } from "../../structures/command/Command";
-import { CommandContext } from "../../structures/command/context/CommandContext";
+import { CommandContext } from "../../structures/command/CommandContext";
+import { Command, CommandTypes } from "../../structures/command/Command";
 import { Tune } from "../../Tune";
 import { Utils } from "../../utils/Utils";
 
-export class Eval extends Command {
+export class Eval extends Command<{ code: string }> {
   constructor(client: Tune) {
     super(
       {
         name: "eval",
+        slashOrder: ["eval"],
         aliases: ["evl", "ev"],
-        type: 0,
-        category: "developer",
-        replyPrivate: true,
-        voice: false,
+        ephemeral: true,
         requirements: { devOnly: true },
+        voiceHasPriority: true,
+        type: CommandTypes.UNIVERSAL_COMMAND,
         parameters: [
           {
             type: "string",
-            name: "input",
+            name: "code",
             required: true,
             showUsage: true,
-            missingError: "errors:missingScript",
+            slashName: "code",
             full: true,
           },
         ],
@@ -39,31 +39,35 @@ export class Eval extends Command {
     );
   }
 
-  async run(context: CommandContext, { input }: EvalArgs) {
+  public async run(context: CommandContext, { code }: { code: string }) {
     try {
-      const result = await ((context.flags as EvalFlags).prompt
-        ? this.executePrompt(input.replace(/(^`{3}(\w+)?|`{3}$)/g, ""))
-        : eval(input.replace(/(^`{3}(\w+)?|`{3}$)/g, "")));
+      const result = await ((
+        context.flags as {
+          prompt?: boolean;
+        }
+      ).prompt
+        ? this.executePrompt(code.replace(/(^`{3}(\w+)?|`{3}$)/g, ""))
+        : eval(code.replace(/(^`{3}(\w+)?|`{3}$)/g, "")));
       const cleanResult = Utils.clean(inspect(result, { depth: 0 })).replaceAll(
-        this.client.token as string,
-        "*".repeat((this.client.token as string).length)
+        process.env.DISCORD_TOKEN,
+        "*".repeat(process.env.DISCORD_TOKEN.length)
       );
-      return await context.reply({
+      await context.reply({
         content: `\`\`\`js\n${cleanResult}\`\`\``,
-        ephemeral: true,
+        flags: 64,
       });
     } catch (e: any) {
       if (e instanceof Error)
         this.client.logger.error(e as any, { error: e, tags: ["Eval"] });
       const cleanError = Utils.clean(e?.toString() ?? String(e));
-      return context.reply({
+      context.reply({
         content: `\`\`\`xl\n${cleanError}\`\`\``,
-        ephemeral: true,
+        flags: 64,
       });
     }
   }
 
-  executePrompt(input: string) {
+  private executePrompt(input: string) {
     return new Promise((resolve, reject) =>
       // eslint-disable-next-line no-promise-executor-return
       exec(input, (err, stout, sterr) =>
@@ -71,12 +75,4 @@ export class Eval extends Command {
       )
     );
   }
-}
-
-interface EvalFlags {
-  prompt?: boolean;
-}
-
-interface EvalArgs {
-  input: string;
 }
